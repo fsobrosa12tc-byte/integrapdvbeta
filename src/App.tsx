@@ -123,14 +123,21 @@ export default function App() {
   // Contador em tempo real de caixas com status Aberto (sem filtro de data para consistência inter-dia)
   const fetchActiveBoxesCount = async () => {
     try {
-      const { count, error } = await supabase
+      const { data, error } = await supabase
         .from('controle_turnos')
-        .select('*', { count: 'exact' })
-        .eq('status_turno', 'Aberto');
+        .select('terminal_id, status_turno, status');
       
       if (error) throw error;
 
-      setActiveBoxesCount(count || 0);
+      const activeTerminals = new Set<string>();
+      (data || []).forEach((t: any) => {
+        const isAberto = t.status_turno === 'Aberto' || t.status === 'Aberto' || t.status_turno === 'Active' || t.status === 'Active';
+        if (isAberto && t.terminal_id) {
+          activeTerminals.add(t.terminal_id);
+        }
+      });
+
+      setActiveBoxesCount(activeTerminals.size);
     } catch (e) {
       console.error('ERRO BI MASTER Caixas Ativos:', e);
       setActiveBoxesCount(0); // Garante que mostre 0 em caso de erro
@@ -756,12 +763,27 @@ export default function App() {
 
   // Realtime Faturamento Diário calculation (numeric(10,2) precision) - D+0 ATÔMICO
   const faturamentoDiario = (() => {
+    // CONDICIONAL ESTRITA DE ZERAMENTO: Se o caixa está fechado na interface
+    if (!caixaState || caixaState.status === 'fechado' || caixaState.status === 'Bloqueado') {
+      return '0.00';
+    }
+
     const role = rlsSession?.userRole || userSession?.userRole || '';
     const isMasterOrAdmin = ['Master', 'Gerente', 'Financeiro'].includes(role);
 
-    // Se não for Master/Gerente/Financeiro, exige caixa aberto e sessão ativa
+    // Se não for Master/Gerente/Financeiro, exige caixa aberto, sessão ativa e turno aberto
     if (!isMasterOrAdmin) {
-      if (!caixaState || caixaState.status === 'fechado' || !userSession?.email || !caixaState.turno_id) return '0.00';
+      if (!userSession?.email || !caixaState.turno_id) return '0.00';
+
+      // Procura o status do turno atual na lista de fechamentos
+      const currentTurnoObj = (historicalClosings || []).find((h: any) => h.id === caixaState.turno_id);
+      if (currentTurnoObj) {
+        const isClosedOrBlocked = currentTurnoObj.status === 'Fechado' || 
+                                  currentTurnoObj.status_turno === 'Fechado' || 
+                                  currentTurnoObj.status === 'Bloqueado' || 
+                                  currentTurnoObj.status_turno === 'Bloqueado';
+        if (isClosedOrBlocked) return '0.00';
+      }
     }
 
     // Obter IDs dos turnos ativos (com status "Aberto") a partir do historicalClosings
