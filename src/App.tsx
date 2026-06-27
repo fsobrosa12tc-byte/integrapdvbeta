@@ -120,19 +120,21 @@ export default function App() {
     fetchIp();
   }, []);
 
-  // Contador em tempo real de caixas com status Aberto (sem filtro de data para consistência inter-dia)
+  // Contador em tempo real de caixas com status Aberto (filtrado por data de hoje para evitar turnos órfãos passados)
   const fetchActiveBoxesCount = async () => {
     try {
       const { data, error } = await supabase
         .from('controle_turnos')
-        .select('terminal_id, status_turno, status');
+        .select('terminal_id, status_turno, status, data_operacional');
       
       if (error) throw error;
 
+      const todayStr = new Date().toISOString().split('T')[0];
       const activeTerminals = new Set<string>();
       (data || []).forEach((t: any) => {
         const isAberto = t.status_turno === 'Aberto' || t.status === 'Aberto' || t.status_turno === 'Active' || t.status === 'Active';
-        if (isAberto && t.terminal_id) {
+        const isToday = t.data_operacional === todayStr;
+        if (isAberto && isToday && t.terminal_id) {
           activeTerminals.add(t.terminal_id);
         }
       });
@@ -1466,7 +1468,7 @@ export default function App() {
       const { error } = await supabase
         .from('controle_turnos')
         .update({
-          horario_fechamento: compiled.horarioFechamento,
+          horario_fechamento: new Date().toISOString(), // Timestamp atual do momento
           usuario_master: compiled.usuarioMaster,
           fundo_troco: parseFloat(compiled.fundoTroco),
           entradas_dinheiro: parseFloat(compiled.entradasDinheiro),
@@ -1479,8 +1481,8 @@ export default function App() {
           saldo_esperado: parseFloat(compiled.saldoEsperado),
           saldo_informado: parseFloat(compiled.saldoInformado),
           divergencia: parseFloat(compiled.divergencia),
-          status: compiled.status, // Gravando status final (ex: 'Conciliado', 'Quebra de Caixa', etc.)
-          status_turno: 'Fechado',
+          status: 'CONCILIADO', // Força status final como CONCILIADO
+          status_turno: 'CONCILIADO', // Altera status_turno para CONCILIADO
           particular_qty: compiled.particularQty,
           particular_total: parseFloat(compiled.particularTotal),
           b2b_qty: compiled.b2bQty,
@@ -1502,7 +1504,7 @@ export default function App() {
             terminal_id: compiled.terminalId,
             data_operacional: compiled.dataOperacional,
             horario_abertura: compiled.horarioAbertura,
-            horario_fechamento: compiled.horarioFechamento,
+            horario_fechamento: new Date().toISOString(), // Timestamp atual do momento
             usuario_master: compiled.usuarioMaster,
             fundo_troco: parseFloat(compiled.fundoTroco),
             entradas_dinheiro: parseFloat(compiled.entradasDinheiro),
@@ -1515,8 +1517,8 @@ export default function App() {
             saldo_esperado: parseFloat(compiled.saldoEsperado),
             saldo_informado: parseFloat(compiled.saldoInformado),
             divergencia: parseFloat(compiled.divergencia),
-            status: compiled.status,
-            status_turno: 'Fechado',
+            status: 'CONCILIADO', // Força status final como CONCILIADO
+            status_turno: 'CONCILIADO', // Altera status_turno para CONCILIADO
             particular_qty: compiled.particularQty,
             particular_total: parseFloat(compiled.particularTotal),
             b2b_qty: compiled.b2bQty,
@@ -2049,67 +2051,117 @@ export default function App() {
           currentSession={rlsSession}
           onLogout={handleLogout}
           onOpenCaixaSuccess={async (fundo, t) => {
-            const newTurnoId = generateUUID();
+            const opEmail = rlsSession?.email || 'ana.caixa@marks.com';
+            let finalTurnoId = generateUUID();
+            let isReused = false;
+            let currentFundo = fundo;
+            let currentAbertura = t;
+
+            // 1. Trava contra turno duplicado por Máquina/Operador
+            try {
+              const { data: activeTurnos, error: queryError } = await supabase
+                .from('controle_turnos')
+                .select('*')
+                .or(`status_turno.eq.Aberto,status.eq.Aberto`);
+
+              if (!queryError && activeTurnos) {
+                const matched = activeTurnos.find((at: any) => 
+                  at.usuario_master === opEmail || 
+                  at.terminal_id === terminalId
+                );
+
+                if (matched) {
+                  finalTurnoId = matched.id;
+                  currentFundo = matched.fundo_troco?.toString() || fundo;
+                  currentAbertura = matched.horario_abertura || t;
+                  isReused = true;
+                  console.log("[TRAVA TURNO] Turno aberto encontrado. Reaproveitando ID:", finalTurnoId);
+                }
+              }
+            } catch (err) {
+              console.error("Erro ao verificar turnos abertos:", err);
+            }
+
             const newCaixaState: CaixaState = {
               status: 'aberto',
-              dataAbertura: t,
-              fundoTroco: fundo,
+              dataAbertura: currentAbertura,
+              fundoTroco: currentFundo,
               operadorName: rlsSession?.userName || 'Operador',
-              operadorEmail: rlsSession?.email || 'ana.caixa@marks.com',
+              operadorEmail: opEmail,
               sangrias: [],
               suprimentos: [],
-              turno_id: newTurnoId, // Gerando turno_id único (UUID)
+              turno_id: finalTurnoId,
               timeline: [
                 {
-                  timestamp: new Date(t).toLocaleTimeString('pt-BR'),
+                  timestamp: new Date().toLocaleTimeString('pt-BR'),
                   operadorName: rlsSession?.userName || 'Operador',
-                  operadorEmail: rlsSession?.email || 'ana.caixa@marks.com',
-                  action: 'Abertura de Caixa',
-                  details: `Início de Turno operacional com Fundo de Troco de ${DecimalMath.formatBRL(fundo)}.`
+                  operadorEmail: opEmail,
+                  action: isReused ? 'Reaproveitamento de Caixa' : 'Abertura de Caixa',
+                  details: isReused 
+                    ? `Caixa reaberto a partir do turno ativo #${finalTurnoId.slice(0, 8)}.`
+                    : `Início de Turno operacional com Fundo de Troco de ${DecimalMath.formatBRL(fundo)}.`
                 }
               ]
             };
 
-            // Inserção imediata do turno no Supabase para permitir monitoramento
-            try {
-              const { error: insertTurnoError } = await supabase
-                .from('controle_turnos')
-                .insert([{
-                  id: newTurnoId,
-                  terminal_id: terminalId,
-                  data_operacional: new Date().toISOString().split('T')[0],
-                  horario_abertura: new Date(t).toLocaleTimeString('pt-BR'),
-                  usuario_master: rlsSession?.email || 'fsobrosa.12tc@gmail.com',
-                  fundo_troco: parseFloat(fundo),
-                  status: 'Aberto',
-                  status_turno: 'Aberto',
-                  timeline: newCaixaState.timeline,
-                  entradas_dinheiro: 0,
-                  entradas_pix: 0,
-                  entradas_credito: 0,
-                  entradas_debito: 0,
-                  entradas_boleto: 0,
-                  reforcos: 0,
-                  retiradas: 0,
-                  saldo_esperado: parseFloat(fundo),
-                  saldo_informado: 0,
-                  divergencia: 0,
-                  particular_qty: 0,
-                  particular_total: 0,
-                  b2b_qty: 0,
-                  b2b_total: 0
-                }]);
+            if (!isReused) {
+              // Inserção imediata do turno no Supabase para permitir monitoramento
+              try {
+                const { error: insertTurnoError } = await supabase
+                  .from('controle_turnos')
+                  .insert([{
+                    id: finalTurnoId,
+                    terminal_id: terminalId,
+                    data_operacional: new Date().toISOString().split('T')[0],
+                    horario_abertura: new Date(t).toLocaleTimeString('pt-BR'),
+                    usuario_master: opEmail,
+                    fundo_troco: parseFloat(fundo),
+                    status: 'Aberto',
+                    status_turno: 'Aberto',
+                    timeline: newCaixaState.timeline,
+                    entradas_dinheiro: 0,
+                    entradas_pix: 0,
+                    entradas_credito: 0,
+                    entradas_debito: 0,
+                    entradas_boleto: 0,
+                    reforcos: 0,
+                    retiradas: 0,
+                    saldo_esperado: parseFloat(fundo),
+                    saldo_informado: 0,
+                    divergencia: 0,
+                    particular_qty: 0,
+                    particular_total: 0,
+                    b2b_qty: 0,
+                    b2b_total: 0
+                  }]);
 
-              if (insertTurnoError) throw insertTurnoError;
-            } catch (err: any) {
-              console.error('Erro ao registrar abertura de turno no Supabase:', err);
-              addToast('Erro ao Registrar Turno', `Não foi possível abrir o turno no banco: ${err.message || err}`, 'alert');
+                if (insertTurnoError) throw insertTurnoError;
+              } catch (err: any) {
+                console.error('Erro ao registrar abertura de turno no Supabase:', err);
+                addToast('Erro ao Registrar Turno', `Não foi possível abrir o turno no banco: ${err.message || err}`, 'alert');
+              }
+            } else {
+              // Se foi reaproveitado, apenas atualiza o fundo_troco e os metadados
+              try {
+                await supabase
+                  .from('controle_turnos')
+                  .update({
+                    fundo_troco: parseFloat(currentFundo),
+                    usuario_master: opEmail,
+                    terminal_id: terminalId,
+                    status: 'Aberto',
+                    status_turno: 'Aberto'
+                  })
+                  .eq('id', finalTurnoId);
+              } catch (err) {
+                console.error('Erro ao atualizar turno reaproveitado no Supabase:', err);
+              }
             }
 
             setCaixaState(newCaixaState);
             localStorage.setItem('caixaState', JSON.stringify(newCaixaState));
             localStorage.setItem('global_caixa_compartilhado', JSON.stringify(newCaixaState));
-            addToast('Caixa Aberto', `Terminal operacional inicializado com fundo de troco de ${DecimalMath.formatBRL(fundo)}.`, 'success');
+            addToast('Caixa Aberto', `Terminal operacional inicializado com fundo de troco de ${DecimalMath.formatBRL(currentFundo)}.`, 'success');
           }}
         />
       )}
