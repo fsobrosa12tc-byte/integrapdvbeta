@@ -328,10 +328,12 @@ export default function App() {
               const hasConvenioItem = txItems.some((item: any) => item.type === 'CONVÊNIO');
               const txVal = parseFloat(tx.valor_liquido || tx.valor_bruto || '0').toFixed(2);
 
-              if (tx.forma_pagamento === 'BOLETO' && !hasConvenioItem) {
-                debits = DecimalMath.add(debits, txVal);
-              } else if (hasConvenioItem && tx.forma_pagamento !== 'BOLETO') {
-                credits = DecimalMath.add(credits, txVal);
+              if (hasConvenioItem) {
+                if (tx.forma_pagamento === 'BOLETO' || tx.forma_pagamento === 'CREDIT_CARD' || tx.forma_pagamento === 'DEBIT_CARD') {
+                  debits = DecimalMath.add(debits, txVal);
+                } else if (tx.forma_pagamento === 'CASH' || tx.forma_pagamento === 'PIX') {
+                  credits = DecimalMath.add(credits, txVal);
+                }
               }
             }
           }
@@ -351,6 +353,25 @@ export default function App() {
           status: 'Ativo'
         };
       }));
+
+      // Log de diagnóstico para auditoria (indicando quantos débitos e créditos ele encontrou no banco)
+      let totalDebitos = 0;
+      let totalCreditos = 0;
+      txData.forEach((tx: any) => {
+        if (tx.status_conciliacao !== 'CANCELLED' && tx.status !== 'CANCELLED') {
+          const txItems = tx.itens || [];
+          const hasConvenioItem = txItems.some((item: any) => item.type === 'CONVÊNIO');
+          if (hasConvenioItem) {
+            const val = parseFloat(tx.valor_liquido || tx.valor_bruto || '0');
+            if (tx.forma_pagamento === 'BOLETO' || tx.forma_pagamento === 'CREDIT_CARD' || tx.forma_pagamento === 'DEBIT_CARD') {
+              totalDebitos += val;
+            } else if (tx.forma_pagamento === 'CASH' || tx.forma_pagamento === 'PIX') {
+              totalCreditos += val;
+            }
+          }
+        }
+      });
+      console.log(`[AUDITORIA CONVÊNIO] Débitos históricos: R$ ${totalDebitos.toFixed(2)} | Créditos históricos: R$ ${totalCreditos.toFixed(2)}`);
 
       setHistoricalClosings(turnosData.map((item: any) => ({
         id: item.id,
@@ -978,8 +999,11 @@ export default function App() {
 
       const hasConvenioItem = (newTx.items || []).some((item: any) => item.type === 'CONVÊNIO');
 
-      // Se for boleto (faturamento a prazo) ordinário (não pagamento de convênio), atualizar o saldo_devedor na tabela public.despachantes
-      if (newTx.paymentMethod === 'BOLETO' && !hasConvenioItem) {
+      // Se for faturamento ordinário em boleto (sem item convênio) ou faturamento de guia de convênio em cartão/boleto (Débito)
+      const isDebit = (newTx.paymentMethod === 'BOLETO' && !hasConvenioItem) || 
+                      (hasConvenioItem && (newTx.paymentMethod === 'BOLETO' || newTx.paymentMethod === 'CREDIT_CARD' || newTx.paymentMethod === 'DEBIT_CARD'));
+
+      if (isDebit) {
         const targetClient = clients.find(c => c.cpfCnpj === newTx.clientCpfCnpj);
         if (targetClient) {
           const currentBal = targetClient.outstandingBalance || '0.00';
@@ -998,8 +1022,10 @@ export default function App() {
         }
       }
 
-      // Se for um recebimento/pagamento de convênio efetuado (Crédito/Amortização de saldo devedor)
-      if (hasConvenioItem && newTx.paymentMethod !== 'BOLETO') {
+      // Se for pagamento/baixa de convênio em CASH ou PIX (Crédito)
+      const isCredit = hasConvenioItem && (newTx.paymentMethod === 'CASH' || newTx.paymentMethod === 'PIX');
+
+      if (isCredit) {
         const targetClient = clients.find(c => c.cpfCnpj === newTx.clientCpfCnpj);
         if (targetClient) {
           const currentBal = targetClient.outstandingBalance || '0.00';
@@ -1158,8 +1184,11 @@ export default function App() {
 
         const hasConvenioItem = (target.items || []).some((item: any) => item.type === 'CONVÊNIO');
 
-        // Se estornou um faturamento ordinário em boleto, reduz o saldo devedor do despachante
-        if (target.paymentMethod === 'BOLETO' && !hasConvenioItem && target.status !== 'CANCELLED') {
+        // Se estornou um faturamento ordinário em boleto (sem convênio) ou faturamento de guia em cartão/boleto (Débito)
+        const isDebit = (target.paymentMethod === 'BOLETO' && !hasConvenioItem) ||
+                        (hasConvenioItem && (target.paymentMethod === 'BOLETO' || target.paymentMethod === 'CREDIT_CARD' || target.paymentMethod === 'DEBIT_CARD'));
+
+        if (isDebit && target.status !== 'CANCELLED') {
           const targetClient = clients.find(c => c.cpfCnpj === target.clientCpfCnpj);
           if (targetClient) {
             const currentBal = targetClient.outstandingBalance || '0.00';
@@ -1179,8 +1208,10 @@ export default function App() {
           }
         }
 
-        // Se estornou um pagamento de convênio, aumenta o saldo devedor de volta
-        if (hasConvenioItem && target.paymentMethod !== 'BOLETO' && target.status !== 'CANCELLED') {
+        // Se estornou um pagamento/baixa de convênio em CASH ou PIX (Crédito)
+        const isCredit = hasConvenioItem && (target.paymentMethod === 'CASH' || target.paymentMethod === 'PIX');
+
+        if (isCredit && target.status !== 'CANCELLED') {
           const targetClient = clients.find(c => c.cpfCnpj === target.clientCpfCnpj);
           if (targetClient) {
             const currentBal = targetClient.outstandingBalance || '0.00';

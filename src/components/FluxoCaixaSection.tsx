@@ -825,10 +825,12 @@ export default function FluxoCaixaSection({
           const isB2b = tx.clientCategory === 'Despachante Credenciado' || (tx.clientCpfCnpj && tx.clientCpfCnpj !== '000.000.000-00' && tx.clientCategory !== 'Particular');
           if (isB2b) {
             const hasConvenioItem = (tx.items || []).some(item => item.type === 'CONVÊNIO');
-            if (tx.paymentMethod === 'BOLETO' && !hasConvenioItem) {
-              debits = DecimalMath.add(debits, tx.netTotal);
-            } else if (hasConvenioItem && tx.paymentMethod !== 'BOLETO') {
-              credits = DecimalMath.add(credits, tx.netTotal);
+            if (hasConvenioItem) {
+              if (tx.paymentMethod === 'BOLETO' || tx.paymentMethod === 'CREDIT_CARD' || tx.paymentMethod === 'DEBIT_CARD') {
+                debits = DecimalMath.add(debits, tx.netTotal);
+              } else if (tx.paymentMethod === 'CASH' || tx.paymentMethod === 'PIX') {
+                credits = DecimalMath.add(credits, tx.netTotal);
+              }
             }
           }
         }
@@ -954,10 +956,12 @@ export default function FluxoCaixaSection({
           if (isB2b) {
             const hasConvenioItem = (tx.items || []).some(item => item.type === 'CONVÊNIO');
             
-            if (tx.paymentMethod === 'BOLETO' && !hasConvenioItem) {
-              debits = DecimalMath.add(debits, tx.netTotal);
-            } else if (hasConvenioItem && tx.paymentMethod !== 'BOLETO') {
-              credits = DecimalMath.add(credits, tx.netTotal);
+            if (hasConvenioItem) {
+              if (tx.paymentMethod === 'BOLETO' || tx.paymentMethod === 'CREDIT_CARD' || tx.paymentMethod === 'DEBIT_CARD') {
+                debits = DecimalMath.add(debits, tx.netTotal);
+              } else if (tx.paymentMethod === 'CASH' || tx.paymentMethod === 'PIX') {
+                credits = DecimalMath.add(credits, tx.netTotal);
+              }
             }
           }
         }
