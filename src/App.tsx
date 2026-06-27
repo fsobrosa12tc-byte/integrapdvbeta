@@ -211,6 +211,10 @@ export default function App() {
     if (!isSilent) {
       setIsDataLoaded(false);
     }
+    // Desativação de cache e limpeza de persistência para evitar valores colados
+    setTransactions([]);
+    setClients([]);
+    setHistoricalClosings([]);
     try {
       // 1. Buscar transações
       const { data: txData, error: txError } = await supabase
@@ -853,7 +857,6 @@ export default function App() {
       terminal_id: terminalId,
       terminal_ip: terminalIp || '127.0.0.1',
       cliente_nome: cliNomeCompleto,
-      cliente_categoria: newTx.clientCategory,
       forma_pagamento: newTx.paymentMethod,
       valor_bruto: parseFloat(valBruto),
       valor_liquido: parseFloat(valLiquido),
@@ -861,6 +864,7 @@ export default function App() {
       hash_auditoria: '',
       itens: newTx.items,
       status_conciliacao: newTx.status || 'PAID',
+      turno_id: newTx.turno_id || caixaState?.turno_id || null,
       data_operacional: (() => {
         try {
           if (caixaState?.dataAbertura) {
