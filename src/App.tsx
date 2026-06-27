@@ -311,7 +311,7 @@ export default function App() {
       }));
 
       setClients(clientData.map((c: any) => {
-        let debits = '0.00';
+        let debits = parseFloat(c.saldo_devedor || '0').toFixed(2);
         let credits = '0.00';
 
         txData.forEach((tx: any) => {
@@ -329,9 +329,9 @@ export default function App() {
               const txVal = parseFloat(tx.valor_liquido || tx.valor_bruto || '0').toFixed(2);
 
               if (hasConvenioItem) {
-                if (tx.forma_pagamento === 'BOLETO' || tx.forma_pagamento === 'CREDIT_CARD' || tx.forma_pagamento === 'DEBIT_CARD') {
+                if (tx.forma_pagamento === 'BOLETO') {
                   debits = DecimalMath.add(debits, txVal);
-                } else if (tx.forma_pagamento === 'CASH' || tx.forma_pagamento === 'PIX') {
+                } else {
                   credits = DecimalMath.add(credits, txVal);
                 }
               }
@@ -363,9 +363,9 @@ export default function App() {
           const hasConvenioItem = txItems.some((item: any) => item.type === 'CONVÊNIO');
           if (hasConvenioItem) {
             const val = parseFloat(tx.valor_liquido || tx.valor_bruto || '0');
-            if (tx.forma_pagamento === 'BOLETO' || tx.forma_pagamento === 'CREDIT_CARD' || tx.forma_pagamento === 'DEBIT_CARD') {
+            if (tx.forma_pagamento === 'BOLETO') {
               totalDebitos += val;
-            } else if (tx.forma_pagamento === 'CASH' || tx.forma_pagamento === 'PIX') {
+            } else {
               totalCreditos += val;
             }
           }
@@ -804,14 +804,27 @@ export default function App() {
         }
 
         // Se for operador comum
-        if (tx.turno_id === caixaState?.turno_id) {
-          return true;
+        if (caixaState?.status === 'fechado') return false;
+
+        // Deve pertencer estritamente ao operador ativo no momento
+        const isMyTx = userSession?.email === tx.operadorEmail || userSession?.email === tx.operador_email;
+        if (!isMyTx) return false;
+
+        // Deve pertencer ao turno ativo atual (ou via cruzamento alternativo)
+        const isCurrentTurno = tx.turno_id === caixaState?.turno_id;
+        const isMatchedAlternative = normalizeOperationalDate(caixaState?.dataAbertura) === normalizeOperationalDate(tx.data_operacional || tx.timestamp) &&
+          (terminalId === tx.terminalId || terminalId === tx.terminal_id);
+
+        if (!isCurrentTurno && !isMatchedAlternative) {
+          return false;
         }
+
+        // E o status do turno associado à transação ou ao caixaState deve ser ABERTO
+        const txTurnoId = tx.turno_id || caixaState?.turno_id;
+        const matchedTurnoObj = historicalClosings?.find(h => h.id === txTurnoId);
+        const isTurnoAberto = matchedTurnoObj ? (matchedTurnoObj.status === 'Aberto' || matchedTurnoObj.status_turno === 'Aberto') : (caixaState?.status === 'aberto');
         
-        // Cruzamento alternativo para operador comum caso FK falhe
-        return normalizeOperationalDate(caixaState?.dataAbertura) === normalizeOperationalDate(tx.data_operacional || tx.timestamp) &&
-          (terminalId === tx.terminalId || terminalId === tx.terminal_id) &&
-          (userSession?.email === tx.operadorEmail || userSession?.email === tx.operador_email);
+        return isTurnoAberto;
       })
       .reduce((sum, tx) => {
         if (!tx) return sum;
@@ -999,9 +1012,8 @@ export default function App() {
 
       const hasConvenioItem = (newTx.items || []).some((item: any) => item.type === 'CONVÊNIO');
 
-      // Se for faturamento ordinário em boleto (sem item convênio) ou faturamento de guia de convênio em cartão/boleto (Débito)
-      const isDebit = (newTx.paymentMethod === 'BOLETO' && !hasConvenioItem) || 
-                      (hasConvenioItem && (newTx.paymentMethod === 'BOLETO' || newTx.paymentMethod === 'CREDIT_CARD' || newTx.paymentMethod === 'DEBIT_CARD'));
+      // Se for faturamento ordinário em boleto ou faturamento de guias em boleto (Débito)
+      const isDebit = newTx.paymentMethod === 'BOLETO';
 
       if (isDebit) {
         const targetClient = clients.find(c => c.cpfCnpj === newTx.clientCpfCnpj);
@@ -1022,8 +1034,8 @@ export default function App() {
         }
       }
 
-      // Se for pagamento/baixa de convênio em CASH ou PIX (Crédito)
-      const isCredit = hasConvenioItem && (newTx.paymentMethod === 'CASH' || newTx.paymentMethod === 'PIX');
+      // Se for um recebimento/pagamento de convênio efetuado (Crédito/Amortização de saldo devedor)
+      const isCredit = hasConvenioItem && newTx.paymentMethod !== 'BOLETO';
 
       if (isCredit) {
         const targetClient = clients.find(c => c.cpfCnpj === newTx.clientCpfCnpj);
@@ -1050,6 +1062,9 @@ export default function App() {
         `Transação ${newTx.sequenceId} pelo valor de ${DecimalMath.formatBRL(newTx.netTotal)} gravada no Banco PostgreSQL.`,
         'success'
       );
+
+      // Re-executar o fetch imediatamente para limpar e atualizar os estados
+      await fetchInitialData(true);
     } catch (err: any) {
       addToast('Erro pós-registro', `Transação gravada, mas falhou ao atualizar a interface: ${err.message || err}`, 'alert');
     }
@@ -1184,9 +1199,8 @@ export default function App() {
 
         const hasConvenioItem = (target.items || []).some((item: any) => item.type === 'CONVÊNIO');
 
-        // Se estornou um faturamento ordinário em boleto (sem convênio) ou faturamento de guia em cartão/boleto (Débito)
-        const isDebit = (target.paymentMethod === 'BOLETO' && !hasConvenioItem) ||
-                        (hasConvenioItem && (target.paymentMethod === 'BOLETO' || target.paymentMethod === 'CREDIT_CARD' || target.paymentMethod === 'DEBIT_CARD'));
+        // Se estornou um débito (qualquer transação em BOLETO)
+        const isDebit = target.paymentMethod === 'BOLETO';
 
         if (isDebit && target.status !== 'CANCELLED') {
           const targetClient = clients.find(c => c.cpfCnpj === target.clientCpfCnpj);
@@ -1208,8 +1222,8 @@ export default function App() {
           }
         }
 
-        // Se estornou um pagamento/baixa de convênio em CASH ou PIX (Crédito)
-        const isCredit = hasConvenioItem && (target.paymentMethod === 'CASH' || target.paymentMethod === 'PIX');
+        // Se estornou um pagamento/baixa de convênio (Crédito)
+        const isCredit = hasConvenioItem && target.paymentMethod !== 'BOLETO';
 
         if (isCredit && target.status !== 'CANCELLED') {
           const targetClient = clients.find(c => c.cpfCnpj === target.clientCpfCnpj);
