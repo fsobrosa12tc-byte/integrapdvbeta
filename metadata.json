@@ -1,0 +1,6 @@
+{
+  "name": "Integra PDV",
+  "description": "Sistema de PDV profissional e Fluxo de Caixa realtime para Despachantes e B2B",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
