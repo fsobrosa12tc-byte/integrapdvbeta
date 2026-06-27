@@ -125,7 +125,7 @@ export default function App() {
     try {
       const { data, error } = await supabase
         .from('controle_turnos')
-        .select('terminal_id, status_turno, status, data_operacional');
+        .select('terminal_id, status_turno, status, data_operacional, usuario_master, operador_email');
       
       if (error) throw error;
 
@@ -134,7 +134,12 @@ export default function App() {
       (data || []).forEach((t: any) => {
         const isAberto = t.status_turno === 'Aberto' || t.status === 'Aberto' || t.status_turno === 'Active' || t.status === 'Active';
         const isToday = t.data_operacional === todayStr;
-        if (isAberto && isToday && t.terminal_id) {
+
+        // Ignora contas que tenham flag, patente ou e-mail de 'MESTRE' ou 'Master'
+        const opEmail = (t.usuario_master || t.operador_email || '').toLowerCase();
+        const isMasterUser = opEmail === 'fsobrosa.12tc@gmail.com' || opEmail.includes('master') || opEmail.includes('mestre');
+
+        if (isAberto && isToday && !isMasterUser && t.terminal_id) {
           activeTerminals.add(t.terminal_id);
         }
       });
@@ -174,10 +179,10 @@ export default function App() {
       hojeInicio.setHours(0,0,0,0);
       const hojeISO = hojeInicio.toISOString();
 
-      // Buscamos apenas os campos necessários de forma simples, omitindo chaves estrangeiras que podem falhar no banco
+      // Buscamos transacoes incluindo o campo turno_id
       const { data: txs, error: txsError } = await supabase
         .from('transacoes')
-        .select('valor_liquido, valor_bruto, status_conciliacao, criado_em, operador_email, data_operacional, terminal_id')
+        .select('valor_liquido, valor_bruto, status_conciliacao, criado_em, operador_email, data_operacional, terminal_id, turno_id')
         .gte('criado_em', hojeISO);
 
       if (txsError) throw txsError;
@@ -193,15 +198,29 @@ export default function App() {
         if (tx.status_conciliacao === 'CANCELLED' || tx.status === 'CANCELLED') return;
         if (!tx.criado_em && !tx.data_operacional) return;
 
-        // Cruzamento na memória da aplicação baseando-se no data_operacional, operador e terminal
-        const matchedTurno = turnosAbertos.find((t: any) => 
-          t &&
-          t.data_operacional &&
-          tx.data_operacional &&
-          normalizeOperationalDate(t.data_operacional) === normalizeOperationalDate(tx.data_operacional) &&
-          (t.terminal_id === tx.terminal_id || t.terminalId === tx.terminal_id) &&
-          (t.usuario_master === tx.operador_email || t.operador_email === tx.operador_email)
-        );
+        // Cruzamento na memória da aplicação baseando-se prioritariamente no turno_id ativo
+        let matchedTurno = null;
+        if (tx.turno_id) {
+          matchedTurno = turnosAbertos.find((t: any) => t.id === tx.turno_id);
+        } else {
+          // Fallback para dados legados de teste que não possuem turno_id
+          const opEmail = (tx.operador_email || '').toLowerCase();
+          const hasClosedTurno = (turnosData || []).some((h: any) => 
+            (h.status === 'Fechado' || h.status === 'CONCILIADO' || h.status_turno === 'CONCILIADO') &&
+            (h.usuario_master || h.operador_email || '').toLowerCase() === opEmail
+          );
+
+          if (!hasClosedTurno) {
+            matchedTurno = turnosAbertos.find((t: any) => 
+              t &&
+              t.data_operacional &&
+              tx.data_operacional &&
+              normalizeOperationalDate(t.data_operacional) === normalizeOperationalDate(tx.data_operacional) &&
+              (t.terminal_id === tx.terminal_id || t.terminalId === tx.terminal_id) &&
+              (t.usuario_master === tx.operador_email || t.operador_email === tx.operador_email)
+            );
+          }
+        }
 
         if (matchedTurno) {
           const val = parseFloat(tx.valor_liquido || tx.valor_bruto || '0') || 0;
@@ -1325,59 +1344,61 @@ export default function App() {
     const tOpen = isNaN(tOpenVal) ? 0 : tOpenVal;
     const currentOperatorEmail = rlsSession?.email || '';
 
-    // Buscar transações reais do terminal atual para esse turno direto do Supabase por segurança contra perda de estado local
+    // Buscar transações reais do turno ativo atual do operador por turno_id no Supabase para isolamento absoluto
     let finalShiftTxs = [];
     try {
-      const { data: dbTxs, error: dbTxsErr } = await supabase
-        .from('transacoes')
-        .select('*')
-        .eq('terminal_id', terminalId)
-        .gte('criado_em', caixaState?.dataAbertura || new Date(0).toISOString())
-        .order('criado_em', { ascending: false });
-      
-      if (dbTxsErr) throw dbTxsErr;
-      if (dbTxs) {
-        finalShiftTxs = dbTxs.map((tx: any) => {
-          const calculatedIssqn = tx.issqn ? parseFloat(tx.issqn).toFixed(2) : (parseFloat(tx.valor_bruto || '0') * 0.02).toFixed(2);
-          const netTotalVal = parseFloat(tx.valor_liquido || tx.valor_bruto || '0').toFixed(2);
-          const brutoVal = parseFloat(tx.valor_bruto || '0').toFixed(2);
-          const activeStatus = tx.status_conciliacao || 'PAID';
+      if (caixaState?.turno_id) {
+        const { data: dbTxs, error: dbTxsErr } = await supabase
+          .from('transacoes')
+          .select('*')
+          .eq('turno_id', caixaState.turno_id)
+          .order('criado_em', { ascending: false });
+        
+        if (dbTxsErr) throw dbTxsErr;
+        if (dbTxs) {
+          finalShiftTxs = dbTxs.map((tx: any) => {
+            const calculatedIssqn = tx.issqn ? parseFloat(tx.issqn).toFixed(2) : (parseFloat(tx.valor_bruto || '0') * 0.02).toFixed(2);
+            const netTotalVal = parseFloat(tx.valor_liquido || tx.valor_bruto || '0').toFixed(2);
+            const brutoVal = parseFloat(tx.valor_bruto || '0').toFixed(2);
+            const activeStatus = tx.status_conciliacao || 'PAID';
 
-          const rawClientName = tx.cliente_nome || 'Particular (Consumidor)';
-          const cpfCnpjMatch = rawClientName.match(/\((?:CPF|CNPJ):\s*([^\)]+)\)/i);
-          const clientCpfCnpj = cpfCnpjMatch ? cpfCnpjMatch[1].trim() : '000.000.000-00';
-          const clientName = rawClientName.replace(/\s*\((?:CPF|CNPJ):[^\)]+\)/i, '').trim();
+            const rawClientName = tx.cliente_nome || 'Particular (Consumidor)';
+            const cpfCnpjMatch = rawClientName.match(/\((?:CPF|CNPJ):\s*([^\)]+)\)/i);
+            const clientCpfCnpj = cpfCnpjMatch ? cpfCnpjMatch[1].trim() : '000.000.000-00';
+            const clientName = rawClientName.replace(/\s*\((?:CPF|CNPJ):[^\)]+\)/i, '').trim();
 
-          return {
-            id: tx.id,
-            sequenceId: `PDV-${tx.id.substring(0, 4).toUpperCase()}`,
-            timestamp: tx.criado_em || new Date().toISOString(),
-            clientName,
-            clientCpfCnpj,
-            clientCategory: tx.cliente_categoria || (clientCpfCnpj !== '000.000.000-00' && clientCpfCnpj.length > 14 ? 'Despachante Credenciado' : 'Particular'),
-            items: tx.itens || [],
-            detranSubtotal: tx.detran_subtotal ? parseFloat(tx.detran_subtotal).toFixed(2) : '0.00',
-            honorariosSubtotal: tx.honorarios_subtotal ? parseFloat(tx.honorarios_subtotal).toFixed(2) : '0.00',
-            otherSubtotal: tx.other_subtotal ? parseFloat(tx.other_subtotal).toFixed(2) : brutoVal,
-            netTotal: netTotalVal,
-            issqn: calculatedIssqn,
-            paymentMethod: tx.forma_pagamento || 'CASH',
-            installments: 1,
-            status: activeStatus,
-            createdBy: {
-              userId: 'op-user',
-              userName: tx.operador_email || 'Operador',
-              userRole: 'Operador',
-              rlsScope: ''
-            },
-            operadorEmail: tx.operador_email,
-            terminalIp: tx.terminal_ip,
-            valorBruto: brutoVal,
-            valorLiquido: netTotalVal,
-            hashAuditoria: tx.hash_auditoria,
-            terminalId: tx.terminal_id
-          };
-        });
+            return {
+              id: tx.id,
+              sequenceId: `PDV-${tx.id.substring(0, 4).toUpperCase()}`,
+              timestamp: tx.criado_em || new Date().toISOString(),
+              clientName,
+              clientCpfCnpj,
+              clientCategory: tx.cliente_categoria || (clientCpfCnpj !== '000.000.000-00' && clientCpfCnpj.length > 14 ? 'Despachante Credenciado' : 'Particular'),
+              items: tx.itens || [],
+              detranSubtotal: tx.detran_subtotal ? parseFloat(tx.detran_subtotal).toFixed(2) : '0.00',
+              honorariosSubtotal: tx.honorarios_subtotal ? parseFloat(tx.honorarios_subtotal).toFixed(2) : '0.00',
+              otherSubtotal: tx.other_subtotal ? parseFloat(tx.other_subtotal).toFixed(2) : brutoVal,
+              netTotal: netTotalVal,
+              issqn: calculatedIssqn,
+              paymentMethod: tx.forma_pagamento || 'CASH',
+              installments: 1,
+              status: activeStatus,
+              createdBy: {
+                userId: 'op-user',
+                userName: tx.operador_email || 'Operador',
+                userRole: 'Operador',
+                rlsScope: ''
+              },
+              operadorEmail: tx.operador_email,
+              terminalIp: tx.terminal_ip,
+              valorBruto: brutoVal,
+              valorLiquido: netTotalVal,
+              hashAuditoria: tx.hash_auditoria,
+              terminalId: tx.terminal_id,
+              turno_id: tx.turno_id
+            };
+          });
+        }
       }
     } catch (dbErr) {
       console.error('Erro ao buscar transações do turno no Supabase para fechamento:', dbErr);

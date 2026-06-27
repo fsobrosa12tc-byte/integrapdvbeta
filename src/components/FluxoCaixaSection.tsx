@@ -760,17 +760,25 @@ export default function FluxoCaixaSection({
       if (!tx) return false;
       if (tx.status === 'CANCELLED') return false;
 
-      // Cruzamento robusto de dados com a tabela controle_turnos
+      // Cruzamento estrito de dados por turno_id ativo
       let isMatched = false;
-      if (tx.turno_id && activeTurnoIds.includes(tx.turno_id)) {
-        isMatched = true;
+      if (tx.turno_id) {
+        isMatched = activeTurnoIds.includes(tx.turno_id);
       } else {
-        // Cruzamento alternativo caso a FK tenha falhado
-        isMatched = activeTurnos.some((t: any) => 
-          normalizeOperationalDate(t.dataOperacional || t.data_operacional) === normalizeOperationalDate(tx.data_operacional || tx.timestamp) &&
-          (t.terminalId === tx.terminalId || t.terminal_id === tx.terminalId || t.terminalId === tx.terminal_id || t.terminal_id === tx.terminal_id) &&
-          (t.usuarioMaster === tx.operadorEmail || t.operador_email === tx.operadorEmail || t.usuarioMaster === tx.operador_email || t.operador_email === tx.operador_email)
+        // Fallback para dados legados de teste que não possuem turno_id
+        const opEmail = (tx.operadorEmail || tx.operador_email || '').toLowerCase();
+        const hasClosedTurno = (historicalClosings || []).some((h: any) => 
+          (h.status === 'Fechado' || h.status === 'CONCILIADO' || h.status_turno === 'CONCILIADO') &&
+          (h.usuario_master || h.operador_email || '').toLowerCase() === opEmail
         );
+
+        if (!hasClosedTurno) {
+          isMatched = activeTurnos.some((t: any) => 
+            normalizeOperationalDate(t.dataOperacional || t.data_operacional) === normalizeOperationalDate(tx.data_operacional || tx.timestamp) &&
+            (t.terminalId === tx.terminalId || t.terminal_id === tx.terminalId || t.terminalId === tx.terminal_id || t.terminal_id === tx.terminal_id) &&
+            (t.usuarioMaster === tx.operadorEmail || t.operador_email === tx.operadorEmail || t.usuarioMaster === tx.operador_email || t.operador_email === tx.operador_email)
+          );
+        }
       }
 
       if (!isMatched) {
@@ -778,6 +786,7 @@ export default function FluxoCaixaSection({
       }
 
       const txDateObj = new Date(tx.timestamp);
+      if (isNaN(txDateObj.getTime())) return false;
       
       // Setup relative date references matching our current operational date
       const now = new Date();
