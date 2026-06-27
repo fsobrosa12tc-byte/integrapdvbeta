@@ -310,16 +310,47 @@ export default function App() {
         };
       }));
 
-      setClients(clientData.map((c: any) => ({
-        id: c.id,
-        name: c.razao_social, // mapped from razao_social
-        cpfCnpj: c.cnpj,      // mapped from cnpj
-        phone: c.telefone,    // mapped from telefone
-        outstandingBalance: parseFloat(c.saldo_devedor || '0').toFixed(2),
-        guiasPendentes: 0,
-        category: 'Despachante Credenciado',
-        status: 'Ativo'
-      })));
+      setClients(clientData.map((c: any) => {
+        let debits = '0.00';
+        let credits = '0.00';
+
+        txData.forEach((tx: any) => {
+          if (tx.status_conciliacao !== 'CANCELLED' && tx.status !== 'CANCELLED') {
+            const rawClientName = tx.cliente_nome || 'Particular (Consumidor)';
+            const cpfCnpjMatch = rawClientName.match(/\((?:CPF|CNPJ):\s*([^\)]+)\)/i);
+            const clientCpfCnpj = cpfCnpjMatch ? cpfCnpjMatch[1].trim() : '000.000.000-00';
+            const clientName = rawClientName.replace(/\s*\((?:CPF|CNPJ):[^\)]+\)/i, '').trim();
+
+            const isThisClient = (clientCpfCnpj !== '000.000.000-00' && clientCpfCnpj === c.cnpj) || clientName === c.razao_social;
+
+            if (isThisClient) {
+              const txItems = tx.itens || [];
+              const hasConvenioItem = txItems.some((item: any) => item.type === 'CONVÊNIO');
+              const txVal = parseFloat(tx.valor_liquido || tx.valor_bruto || '0').toFixed(2);
+
+              if (tx.forma_pagamento === 'BOLETO' && !hasConvenioItem) {
+                debits = DecimalMath.add(debits, txVal);
+              } else if (hasConvenioItem && tx.forma_pagamento !== 'BOLETO') {
+                credits = DecimalMath.add(credits, txVal);
+              }
+            }
+          }
+        });
+
+        const netBalance = DecimalMath.sub(debits, credits);
+        const finalOutstanding = parseFloat(netBalance) < 0 ? '0.00' : netBalance;
+
+        return {
+          id: c.id,
+          name: c.razao_social,
+          cpfCnpj: c.cnpj,
+          phone: c.telefone,
+          outstandingBalance: finalOutstanding,
+          guiasPendentes: 0,
+          category: 'Despachante Credenciado',
+          status: 'Ativo'
+        };
+      }));
 
       setHistoricalClosings(turnosData.map((item: any) => ({
         id: item.id,
