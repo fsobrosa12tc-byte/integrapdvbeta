@@ -279,7 +279,11 @@ export default function App() {
           timestamp: tx.criado_em || new Date().toISOString(),
           clientName,
           clientCpfCnpj,
-          clientCategory: tx.cliente_categoria || (clientCpfCnpj !== '000.000.000-00' && clientCpfCnpj.length > 14 ? 'Despachante Credenciado' : 'Particular'),
+          clientCategory: (() => {
+            if (tx.cliente_categoria) return tx.cliente_categoria;
+            const isRegisteredDespachante = clientData.some((c: any) => c.cnpj === clientCpfCnpj || c.razao_social === clientName);
+            return isRegisteredDespachante ? 'Despachante Credenciado' : 'Particular';
+          })(),
           items: mappedItems,
           detranSubtotal: detranSub,
           honorariosSubtotal: honorariosSub,
@@ -784,6 +788,7 @@ export default function App() {
       terminal_id: terminalId,
       terminal_ip: terminalIp || '127.0.0.1',
       cliente_nome: cliNomeCompleto,
+      cliente_categoria: newTx.clientCategory,
       forma_pagamento: newTx.paymentMethod,
       valor_bruto: parseFloat(valBruto),
       valor_liquido: parseFloat(valLiquido),
@@ -940,8 +945,10 @@ export default function App() {
       }
       // =======================================================================
 
-      // Se for boleto (faturamento a prazo), atualizar o saldo_devedor na tabela public.despachantes
-      if (newTx.paymentMethod === 'BOLETO') {
+      const hasConvenioItem = (newTx.items || []).some((item: any) => item.type === 'CONVÊNIO');
+
+      // Se for boleto (faturamento a prazo) ordinário (não pagamento de convênio), atualizar o saldo_devedor na tabela public.despachantes
+      if (newTx.paymentMethod === 'BOLETO' && !hasConvenioItem) {
         const targetClient = clients.find(c => c.cpfCnpj === newTx.clientCpfCnpj);
         if (targetClient) {
           const currentBal = targetClient.outstandingBalance || '0.00';
@@ -956,6 +963,27 @@ export default function App() {
 
           setClients(prevClients => 
             prevClients.map(c => c.id === targetClient.id ? { ...c, outstandingBalance: nextBal } : c)
+          );
+        }
+      }
+
+      // Se for um recebimento/pagamento de convênio efetuado (Crédito/Amortização de saldo devedor)
+      if (hasConvenioItem && newTx.paymentMethod !== 'BOLETO') {
+        const targetClient = clients.find(c => c.cpfCnpj === newTx.clientCpfCnpj);
+        if (targetClient) {
+          const currentBal = targetClient.outstandingBalance || '0.00';
+          const nextBal = DecimalMath.sub(currentBal, newTx.netTotal);
+          const safeBal = parseFloat(nextBal) < 0 ? '0.00' : nextBal;
+
+          const { error: balanceError } = await supabase
+            .from('despachantes')
+            .update({ saldo_devedor: safeBal })
+            .eq('id', targetClient.id);
+
+          if (balanceError) throw balanceError;
+
+          setClients(prevClients => 
+            prevClients.map(c => c.id === targetClient.id ? { ...c, outstandingBalance: safeBal } : c)
           );
         }
       }
@@ -1097,7 +1125,10 @@ export default function App() {
           prev.map(tx => tx.id === txId ? { ...tx, status: 'CANCELLED' } : tx)
         );
 
-        if (target.paymentMethod === 'BOLETO' && target.status !== 'CANCELLED') {
+        const hasConvenioItem = (target.items || []).some((item: any) => item.type === 'CONVÊNIO');
+
+        // Se estornou um faturamento ordinário em boleto, reduz o saldo devedor do despachante
+        if (target.paymentMethod === 'BOLETO' && !hasConvenioItem && target.status !== 'CANCELLED') {
           const targetClient = clients.find(c => c.cpfCnpj === target.clientCpfCnpj);
           if (targetClient) {
             const currentBal = targetClient.outstandingBalance || '0.00';
@@ -1113,6 +1144,26 @@ export default function App() {
 
             setClients(prevClients => 
               prevClients.map(c => c.id === targetClient.id ? { ...c, outstandingBalance: safeBal } : c)
+            );
+          }
+        }
+
+        // Se estornou um pagamento de convênio, aumenta o saldo devedor de volta
+        if (hasConvenioItem && target.paymentMethod !== 'BOLETO' && target.status !== 'CANCELLED') {
+          const targetClient = clients.find(c => c.cpfCnpj === target.clientCpfCnpj);
+          if (targetClient) {
+            const currentBal = targetClient.outstandingBalance || '0.00';
+            const nextBal = DecimalMath.add(currentBal, target.netTotal);
+
+            const { error: balanceError } = await supabase
+              .from('despachantes')
+              .update({ saldo_devedor: nextBal })
+              .eq('id', targetClient.id);
+
+            if (balanceError) throw balanceError;
+
+            setClients(prevClients => 
+              prevClients.map(c => c.id === targetClient.id ? { ...c, outstandingBalance: nextBal } : c)
             );
           }
         }

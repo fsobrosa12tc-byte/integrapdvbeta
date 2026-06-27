@@ -817,14 +817,24 @@ export default function FluxoCaixaSection({
 
   // KPI calculados síncronamente via useMemo compartilhando a mesma fonte de dados realtime (transactions)
   const biKpis = React.useMemo(() => {
-    let conv = '0.00';
-    if (clients) {
-      clients.forEach(c => {
-        if (c.category !== 'Particular') {
-          conv = DecimalMath.add(conv, parseFloat(c.outstandingBalance || '0').toFixed(2));
+    let debits = '0.00';
+    let credits = '0.00';
+    if (transactions) {
+      transactions.forEach(tx => {
+        if (tx.status !== 'CANCELLED') {
+          const isB2b = tx.clientCategory === 'Despachante Credenciado' || (tx.clientCpfCnpj && tx.clientCpfCnpj !== '000.000.000-00' && tx.clientCategory !== 'Particular');
+          if (isB2b) {
+            const hasConvenioItem = (tx.items || []).some(item => item.type === 'CONVÊNIO');
+            if (tx.paymentMethod === 'BOLETO' && !hasConvenioItem) {
+              debits = DecimalMath.add(debits, tx.netTotal);
+            } else if (hasConvenioItem && tx.paymentMethod !== 'BOLETO') {
+              credits = DecimalMath.add(credits, tx.netTotal);
+            }
+          }
         }
       });
     }
+    const conv = parseFloat(DecimalMath.sub(debits, credits)) < 0 ? '0.00' : DecimalMath.sub(debits, credits);
 
     // Obter IDs dos turnos ativos (com status "Aberto") a partir do controle_turnos (historicalClosings)
     const activeTurnoIds = (historicalClosings || [])
@@ -930,19 +940,33 @@ export default function FluxoCaixaSection({
       conveniosAberto: conv,
       sangrias: sang
     };
-  }, [biFilteredTx, clients, historicalClosings, caixaState, activeDateFilter, customStartDate, customEndDate, faturamentoDiaMaster, rlsSession]);
+  }, [biFilteredTx, clients, historicalClosings, caixaState, activeDateFilter, customStartDate, customEndDate, faturamentoDiaMaster, rlsSession, transactions]);
 
   const convenioAbertoTotal = React.useMemo(() => {
-    let conv = '0.00';
-    if (clients) {
-      clients.forEach(c => {
-        if (c.category !== 'Particular') {
-          conv = DecimalMath.add(conv, parseFloat(c.outstandingBalance || '0').toFixed(2));
+    let debits = '0.00';
+    let credits = '0.00';
+
+    if (transactions) {
+      transactions.forEach(tx => {
+        if (tx.status !== 'CANCELLED') {
+          const isB2b = tx.clientCategory === 'Despachante Credenciado' || (tx.clientCpfCnpj && tx.clientCpfCnpj !== '000.000.000-00' && tx.clientCategory !== 'Particular');
+          
+          if (isB2b) {
+            const hasConvenioItem = (tx.items || []).some(item => item.type === 'CONVÊNIO');
+            
+            if (tx.paymentMethod === 'BOLETO' && !hasConvenioItem) {
+              debits = DecimalMath.add(debits, tx.netTotal);
+            } else if (hasConvenioItem && tx.paymentMethod !== 'BOLETO') {
+              credits = DecimalMath.add(credits, tx.netTotal);
+            }
+          }
         }
       });
     }
-    return conv;
-  }, [clients]);
+
+    const balance = DecimalMath.sub(debits, credits);
+    return parseFloat(balance) < 0 ? '0.00' : balance;
+  }, [transactions]);
 
   // Filters
   const [filterPayment, setFilterPayment] = useState<string>('ALL');
