@@ -2071,19 +2071,22 @@ export default function App() {
   }
 
   // === BARREIRA DE ACESSO MÓVEL EXCLUSIVO PARA OPERADOR ===
-  if (isMobile && (userSession?.userRole === 'Operador' || rlsSession?.userRole === 'Operador')) {
+  const isCurrentlyMobile = typeof window !== 'undefined' && (window.innerWidth < 768 || isMobile);
+  const isUserOperator = (userSession?.userRole || rlsSession?.userRole || '').trim().toUpperCase() === 'OPERADOR';
+
+  if (isCurrentlyMobile && isUserOperator) {
     return (
       <div className="min-h-screen bg-brand-navy-deep text-slate-100 flex flex-col justify-center items-center p-6 text-center select-none animate-fade-in">
         <div className="max-w-md w-full bg-brand-navy-card border border-brand-navy-bright p-8 rounded-2xl shadow-2xl space-y-6">
-          <div className="mx-auto w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center border border-red-500/20 text-red-500 animate-pulse">
+          <div className="mx-auto w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center border border-red-500/20 text-red-500 animate-pulse animate-duration-1000">
             <Shield className="w-8 h-8" />
           </div>
           <div className="space-y-2">
             <h1 className="text-lg font-display font-extrabold text-white tracking-wide uppercase">
               Acesso Restrito
             </h1>
-            <p className="text-sm text-slate-350 leading-relaxed">
-              Acesso restrito ao terminal de computador. Esta versão móvel é exclusiva para auditoria gerencial do Master.
+            <p className="text-sm text-slate-300 leading-relaxed font-medium">
+              Acesso restrito ao computador. Esta versão móvel é exclusiva para auditoria gerencial do Master.
             </p>
           </div>
           <div className="pt-2 border-t border-brand-navy-bright/60">
@@ -2091,7 +2094,7 @@ export default function App() {
               onClick={handleLogout}
               className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-sans font-extrabold text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer"
             >
-              Sair / Logout
+              Desconectar
             </button>
           </div>
         </div>
