@@ -20,6 +20,7 @@ interface HeaderProps {
   isMaster?: boolean;
   faturamentoDiario?: string;
   activeBoxesCount?: number;
+  isMobile?: boolean;
 }
 
 export default function Header({ 
@@ -29,7 +30,8 @@ export default function Header({
   caixaState,
   isMaster = true,
   faturamentoDiario = '0.00',
-  activeBoxesCount = 0
+  activeBoxesCount = 0,
+  isMobile = false
 }: HeaderProps) {
   const [ping, setPing] = useState<number>(14);
   const [pulse, setPulse] = useState<boolean>(true);
@@ -110,7 +112,7 @@ export default function Header({
         {/* Realtime Telemetry Hub & RLS Monitor */}
         <div className="flex flex-wrap items-center gap-3 bg-brand-navy-deep/80 border border-brand-navy-bright/70 rounded-lg p-1.5 md:p-2 relative overflow-hidden">
           {/* New Cash Opening indicators */}
-          {caixaState && (
+          {caixaState && !isMobile && (
             <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-mono border ${
               caixaState.status === 'aberto'
                 ? 'bg-brand-emerald/10 border-brand-emerald/20 text-brand-emerald'

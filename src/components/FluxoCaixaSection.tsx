@@ -37,6 +37,7 @@ interface FluxoCaixaSectionProps {
   historicalClosings: any[];
   setHistoricalClosings: React.Dispatch<React.SetStateAction<any[]>>;
   faturamentoDiaMaster?: string;
+  isMobile?: boolean;
 }
 
 const generatePasswordExact8 = (): string => {
@@ -94,7 +95,8 @@ export default function FluxoCaixaSection({
   onRegisterUser,
   historicalClosings,
   setHistoricalClosings,
-  faturamentoDiaMaster
+  faturamentoDiaMaster,
+  isMobile = false
 }: FluxoCaixaSectionProps) {
   const hasCrudAccess = isMaster || rlsSession?.userRole === 'Master' || rlsSession?.userRole === 'Gerente' || rlsSession?.userRole === 'Financeiro';
 
@@ -140,6 +142,13 @@ export default function FluxoCaixaSection({
 
   // Sub-abas de Dashboard: CONTABIL (Conciliação & Livro Caixa) vs BI_MASTER (BI Analytics Realtime exclusivo Master) vs HISTORICO_ATAS
   const [subTab, setSubTab] = useState<'CONTABIL' | 'BI_MASTER' | 'HISTORICO_ATAS'>('CONTABIL');
+
+  // Forçar sub-aba BI_MASTER no mobile
+  useEffect(() => {
+    if (isMobile) {
+      setSubTab('BI_MASTER');
+    }
+  }, [isMobile]);
 
   // Filtros de Alta Performance para Consulta Histórica de Atas
   const [histStartDate, setHistStartDate] = useState<string>(() => {
@@ -766,7 +775,7 @@ export default function FluxoCaixaSection({
         isMatched = activeTurnoIds.includes(tx.turno_id);
       } else {
         // Fallback para dados legados de teste que não possuem turno_id
-        const opEmail = (tx.operadorEmail || tx.operador_email || '').toLowerCase();
+        const opEmail = (tx.operadorEmail || '').toLowerCase();
         const hasClosedTurno = (historicalClosings || []).some((h: any) => 
           (h.status === 'Fechado' || h.status === 'CONCILIADO' || h.status_turno === 'CONCILIADO') &&
           (h.usuario_master || h.operador_email || '').toLowerCase() === opEmail
@@ -774,9 +783,9 @@ export default function FluxoCaixaSection({
 
         if (!hasClosedTurno) {
           isMatched = activeTurnos.some((t: any) => 
-            normalizeOperationalDate(t.dataOperacional || t.data_operacional) === normalizeOperationalDate(tx.data_operacional || tx.timestamp) &&
-            (t.terminalId === tx.terminalId || t.terminal_id === tx.terminalId || t.terminalId === tx.terminal_id || t.terminal_id === tx.terminal_id) &&
-            (t.usuarioMaster === tx.operadorEmail || t.operador_email === tx.operadorEmail || t.usuarioMaster === tx.operador_email || t.operador_email === tx.operador_email)
+            normalizeOperationalDate(t.dataOperacional || t.data_operacional) === normalizeOperationalDate(tx.timestamp) &&
+            (t.terminalId === tx.terminalId || t.terminal_id === tx.terminalId) &&
+            (t.usuarioMaster === tx.operadorEmail || t.operador_email === tx.operadorEmail)
           );
         }
       }
@@ -1177,40 +1186,42 @@ export default function FluxoCaixaSection({
     <div className="space-y-6">
 
       {/* Sub-Tabs Selector inside Dashboard */}
-      <div className="flex border-b border-brand-navy-bright gap-4 pb-px">
-        <button
-          onClick={() => setSubTab('CONTABIL')}
-          className={`pb-2.5 px-1 text-xs font-bold uppercase tracking-wider relative transition-all cursor-pointer ${
-            subTab === 'CONTABIL' 
-              ? 'text-brand-emerald border-b-2 border-brand-emerald' 
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          🗃️ Conciliação & Livro Caixa
-        </button>
-        <button
-          onClick={() => setSubTab('BI_MASTER')}
-          className={`pb-2.5 px-1 text-xs font-bold uppercase tracking-wider relative transition-all cursor-pointer flex items-center gap-1.5 ${
-            subTab === 'BI_MASTER' 
-              ? 'text-brand-emerald border-b-2 border-brand-emerald' 
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <TrendingUp className="w-4 h-4 text-brand-emerald animate-pulse" />
-          📊 BI Analítico Master (Tempo Real)
-        </button>
-        <button
-          onClick={() => setSubTab('HISTORICO_ATAS')}
-          className={`pb-2.5 px-1 text-xs font-bold uppercase tracking-wider relative transition-all cursor-pointer flex items-center gap-1.5 ${
-            subTab === 'HISTORICO_ATAS' 
-              ? 'text-brand-emerald border-b-2 border-brand-emerald' 
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Clock className="w-4 h-4 text-brand-emerald" />
-          🧾 Histórico e Atas de Caixa
-        </button>
-      </div>
+      {!isMobile && (
+        <div className="flex border-b border-brand-navy-bright gap-4 pb-px">
+          <button
+            onClick={() => setSubTab('CONTABIL')}
+            className={`pb-2.5 px-1 text-xs font-bold uppercase tracking-wider relative transition-all cursor-pointer ${
+              subTab === 'CONTABIL' 
+                ? 'text-brand-emerald border-b-2 border-brand-emerald' 
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            🗃️ Conciliação & Livro Caixa
+          </button>
+          <button
+            onClick={() => setSubTab('BI_MASTER')}
+            className={`pb-2.5 px-1 text-xs font-bold uppercase tracking-wider relative transition-all cursor-pointer flex items-center gap-1.5 ${
+              subTab === 'BI_MASTER' 
+                ? 'text-brand-emerald border-b-2 border-brand-emerald' 
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <TrendingUp className="w-4 h-4 text-brand-emerald animate-pulse" />
+            📊 BI Analítico Master (Tempo Real)
+          </button>
+          <button
+            onClick={() => setSubTab('HISTORICO_ATAS')}
+            className={`pb-2.5 px-1 text-xs font-bold uppercase tracking-wider relative transition-all cursor-pointer flex items-center gap-1.5 ${
+              subTab === 'HISTORICO_ATAS' 
+                ? 'text-brand-emerald border-b-2 border-brand-emerald' 
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Clock className="w-4 h-4 text-brand-emerald" />
+            🧾 Histórico e Atas de Caixa
+          </button>
+        </div>
+      )}
 
       {subTab === 'CONTABIL' ? (
         <>
@@ -2971,7 +2982,9 @@ export default function FluxoCaixaSection({
       </div>
 
       {/* 5. PAINEL DE MONITORIZAÇÃO DE CONFORMIDADE E ALERTAS (O LIVRO COMPLETO DE CLOSURES) */}
-      <div className="bg-brand-navy-card p-5 border border-brand-navy-bright rounded-2xl shadow-lg">
+      {!isMobile && (
+        <>
+          <div className="bg-brand-navy-card p-5 border border-brand-navy-bright rounded-2xl shadow-lg">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
           <div>
             <h4 className="font-display font-semibold text-xs text-slate-200 uppercase tracking-wider flex items-center gap-2">
@@ -3136,6 +3149,8 @@ export default function FluxoCaixaSection({
           </table>
         </div>
       </div>
+        </>
+      )}
 
     </div>
   ) : (

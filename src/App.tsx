@@ -487,6 +487,33 @@ export default function App() {
   // Active View Tab: 'PDV' | 'DASHBOARD'
   const [activeTab, setActiveTab] = useState<'PDV' | 'DASHBOARD'>('PDV');
 
+  // Detecção de dispositivo móvel (smartphone/celular)
+  const [isMobile, setIsMobile] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
+    const isMobileUA = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent.toLowerCase());
+    const isSmallScreen = window.innerWidth < 768;
+    return isMobileUA || isSmallScreen;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
+      const isMobileUA = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent.toLowerCase());
+      const isSmallScreen = window.innerWidth < 768;
+      setIsMobile(isMobileUA || isSmallScreen);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Forçar a visualização do painel gerencial no mobile
+  useEffect(() => {
+    if (isMobile) {
+      setActiveTab('DASHBOARD');
+    }
+  }, [isMobile]);
+
   // Form inline para sangria/suprimento
   const [showSangriaForm, setShowSangriaForm] = useState<boolean>(false);
   const [showSuprimentoForm, setShowSuprimentoForm] = useState<boolean>(false);
@@ -2043,6 +2070,35 @@ export default function App() {
     );
   }
 
+  // === BARREIRA DE ACESSO MÓVEL EXCLUSIVO PARA OPERADOR ===
+  if (isMobile && (userSession?.userRole === 'Operador' || rlsSession?.userRole === 'Operador')) {
+    return (
+      <div className="min-h-screen bg-brand-navy-deep text-slate-100 flex flex-col justify-center items-center p-6 text-center select-none animate-fade-in">
+        <div className="max-w-md w-full bg-brand-navy-card border border-brand-navy-bright p-8 rounded-2xl shadow-2xl space-y-6">
+          <div className="mx-auto w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center border border-red-500/20 text-red-500 animate-pulse">
+            <Shield className="w-8 h-8" />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-lg font-display font-extrabold text-white tracking-wide uppercase">
+              Acesso Restrito
+            </h1>
+            <p className="text-sm text-slate-350 leading-relaxed">
+              Acesso restrito ao terminal de computador. Esta versão móvel é exclusiva para auditoria gerencial do Master.
+            </p>
+          </div>
+          <div className="pt-2 border-t border-brand-navy-bright/60">
+            <button
+              onClick={handleLogout}
+              className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-sans font-extrabold text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer"
+            >
+              Sair / Logout
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // === BARREIRA DE CARREGAMENTO DE DADOS DO OPERADOR / MASTER ===
   if (!isDataLoaded || !rlsSession) {
     return (
@@ -2064,6 +2120,7 @@ export default function App() {
         isMaster={isMaster}
         faturamentoDiario={isMaster ? faturamentoDiaMaster : faturamentoDiario}
         activeBoxesCount={activeBoxesCount}
+        isMobile={isMobile}
       />
 
       {/* Closed Cash Register modal overlay */}
@@ -2188,7 +2245,8 @@ export default function App() {
       )}
 
       {/* 2. Secondary cockpit utility controls */}
-      <div className={`bg-brand-navy-card/40 border-b border-brand-navy-bright py-2.5 px-4 transition-all duration-300 ${caixaState?.status === 'fechado' && !['Master', 'Gerente', 'Financeiro'].includes(rlsSession?.userRole || userSession?.userRole || '') ? 'blur-sm pointer-events-none opacity-40' : ''}`}>
+      {!isMobile && (
+        <div className={`bg-brand-navy-card/40 border-b border-brand-navy-bright py-2.5 px-4 transition-all duration-300 ${caixaState?.status === 'fechado' && !['Master', 'Gerente', 'Financeiro'].includes(rlsSession?.userRole || userSession?.userRole || '') ? 'blur-sm pointer-events-none opacity-40' : ''}`}>
         <div className="max-w-7xl mx-auto flex flex-col gap-3">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             {/* Sub-navigation views switcher */}
@@ -2352,6 +2410,7 @@ export default function App() {
 
         </div>
       </div>
+      )}
 
       {/* 3. Primary Workspace Screen viewports */}
       <main className={`flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 pb-20 transition-all duration-300 ${caixaState?.status === 'fechado' && !['Master', 'Gerente', 'Financeiro'].includes(rlsSession?.userRole || userSession?.userRole || '') ? 'blur-sm pointer-events-none opacity-40' : ''}`}>
@@ -2385,6 +2444,7 @@ export default function App() {
               historicalClosings={historicalClosings}
               setHistoricalClosings={setHistoricalClosings}
               faturamentoDiaMaster={faturamentoDiaMaster}
+              isMobile={isMobile}
             />
           ) : null
         )}
