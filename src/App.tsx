@@ -1977,6 +1977,24 @@ export default function App() {
     });
   };
 
+  // === REGRA MÁXIMA DE RENDERIZAÇÃO: BLOQUEIO ABSOLUTO MOBILE PARA OPERADOR ===
+  const isMobileDevice = typeof window !== 'undefined' && window.innerWidth < 768;
+  const _roleCheck = (r: string | undefined | null) => {
+    const norm = (r || '').trim().toUpperCase();
+    return norm === 'OPERADOR' || norm === 'CAIXA';
+  };
+  const isOperadorMobile = _roleCheck(userSession?.userRole) || _roleCheck(rlsSession?.userRole);
+
+  if (isMobileDevice && isOperadorMobile) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', backgroundColor: '#111827', color: '#fff', padding: '20px', textAlign: 'center' }}>
+        <h2 style={{ fontSize: '1.5rem', marginBottom: '10px', color: '#EF4444' }}>Acesso Restrito</h2>
+        <p style={{ color: '#9CA3AF', marginBottom: '20px' }}>A interface de ponto de venda é restrita ao computador. Esta versão móvel é exclusiva para o Cockpit BI do Master.</p>
+        <button onClick={handleLogout} style={{ backgroundColor: '#1F2937', color: '#fff', padding: '10px 20px', borderRadius: '6px', border: '1px solid #374151', cursor: 'pointer' }}>Sair do Sistema</button>
+      </div>
+    );
+  }
+
   // === GUARD CLAUSE DE SEGURANÇA: BARREIRA DE AUTENTICAÇÃO ABSOLUTA (EARLY RETURN) ===
   if (!userSession || !userSession.email) {
     return (
@@ -2065,42 +2083,6 @@ export default function App() {
               </div>
             );
           })}
-        </div>
-      </div>
-    );
-  }
-
-  // === BARREIRA DE ACESSO MÓVEL EXCLUSIVO PARA OPERADOR ===
-  const isCurrentlyMobile = typeof window !== 'undefined' && (window.innerWidth < 768 || isMobile);
-  const _roleCheck = (r: string | undefined | null) => {
-    const norm = (r || '').trim().toUpperCase();
-    return norm === 'OPERADOR' || norm === 'CAIXA';
-  };
-  const isUserOperator = _roleCheck(userSession?.userRole) || _roleCheck(rlsSession?.userRole);
-
-  if (isCurrentlyMobile && isUserOperator) {
-    return (
-      <div className="min-h-screen bg-brand-navy-deep text-slate-100 flex flex-col justify-center items-center p-6 text-center select-none animate-fade-in">
-        <div className="max-w-md w-full bg-brand-navy-card border border-brand-navy-bright p-8 rounded-2xl shadow-2xl space-y-6">
-          <div className="mx-auto w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center border border-red-500/20 text-red-500 animate-pulse animate-duration-1000">
-            <Shield className="w-8 h-8" />
-          </div>
-          <div className="space-y-2">
-            <h1 className="text-lg font-display font-extrabold text-white tracking-wide uppercase">
-              Acesso Restrito
-            </h1>
-            <p className="text-sm text-slate-300 leading-relaxed font-medium">
-              Acesso restrito ao computador. Esta versão móvel é exclusiva para auditoria gerencial do Master.
-            </p>
-          </div>
-          <div className="pt-2 border-t border-brand-navy-bright/60">
-            <button
-              onClick={handleLogout}
-              className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-sans font-extrabold text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer"
-            >
-              Desconectar
-            </button>
-          </div>
         </div>
       </div>
     );
