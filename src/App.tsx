@@ -2072,7 +2072,11 @@ export default function App() {
 
   // === BARREIRA DE ACESSO MÓVEL EXCLUSIVO PARA OPERADOR ===
   const isCurrentlyMobile = typeof window !== 'undefined' && (window.innerWidth < 768 || isMobile);
-  const isUserOperator = (userSession?.userRole || rlsSession?.userRole || '').trim().toUpperCase() === 'OPERADOR';
+  const _roleCheck = (r: string | undefined | null) => {
+    const norm = (r || '').trim().toUpperCase();
+    return norm === 'OPERADOR' || norm === 'CAIXA';
+  };
+  const isUserOperator = _roleCheck(userSession?.userRole) || _roleCheck(rlsSession?.userRole);
 
   if (isCurrentlyMobile && isUserOperator) {
     return (

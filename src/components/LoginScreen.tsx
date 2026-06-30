@@ -62,6 +62,17 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       }
 
       if (user) {
+        // === TRAVA DE SEGURANÇA MOBILE: bloqueia operador no celular ANTES de concluir login ===
+        const funcaoNorm = (user.funcao || '').trim().toUpperCase();
+        const isMobileDevice = typeof window !== 'undefined' && window.innerWidth < 768;
+        const isOperadorRole = funcaoNorm === 'OPERADOR' || funcaoNorm === 'CAIXA';
+
+        if (isMobileDevice && isOperadorRole) {
+          setErrorMsg('Acesso restrito ao computador. Esta versão móvel é exclusiva para auditoria gerencial do Master.');
+          setIsLoading(false);
+          return;
+        }
+
         setSuccessMsg(`Autenticação de ${user.funcao} confirmada! Carregando terminal...`);
         setTimeout(() => {
           onLoginSuccess({
@@ -69,11 +80,11 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
             userName: user.nome, // mapped from 'nome'
             userRole: user.funcao, // mapped from 'funcao'
             currentTenantId: 'BR-POA-MAIN-9',
-            rlsPolicyApplied: user.funcao === 'Operador'
+            rlsPolicyApplied: (user.funcao || '').trim().toUpperCase() === 'OPERADOR' || (user.funcao || '').trim().toUpperCase() === 'CAIXA'
               ? 'SELECT * FROM current_orders WHERE created_by_id = authenticated_user_id(); (RESTRICTED TO SELF CREATED)'
               : 'SELECT * FROM transactions WHERE tenant_id = current_tenant(); (FULL COMMITTED ACCESSIBILITY)',
             email: user.email
-          }, user.funcao !== 'Operador');
+          }, !isOperadorRole);
         }, 1000);
       } else {
         setErrorMsg('Acesso negado. Credenciais inválidas ou conta inativa.');
