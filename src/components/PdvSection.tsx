@@ -285,7 +285,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
   const [newClientName, setNewClientName] = useState('');
   const [newClientCpfCnpj, setNewClientCpfCnpj] = useState('');
   const [newClientPhone, setNewClientPhone] = useState('');
-  const [newClientCategory, setNewClientCategory] = useState<'Particular' | 'Revenda Veículos' | 'Despachante Credenciado'>('Particular');
+  const [newClientCategory, setNewClientCategory] = useState<'Particular' | 'Revenda de carros' | 'Despachante Credenciado'>('Particular');
 
   // Search & Filters on Services
   const [selectedServiceTab, setSelectedServiceTab] = useState<string>('ALL');

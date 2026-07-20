@@ -684,7 +684,7 @@ export default function FluxoCaixaSection({
   const [clientFormName, setClientFormName] = useState('');
   const [clientFormCpfCnpj, setClientFormCpfCnpj] = useState('');
   const [clientFormPhone, setClientFormPhone] = useState('');
-  const [clientFormCategory, setClientFormCategory] = useState<'Despachante Credenciado' | 'Revenda Veículos'>('Despachante Credenciado');
+  const [clientFormCategory, setClientFormCategory] = useState<'Despachante Credenciado' | 'Revenda de carros'>('Despachante Credenciado');
 
   const [editingClientId, setEditingClientId] = useState<string | null>(null);
   const [editFormName, setEditFormName] = useState('');
@@ -1597,7 +1597,7 @@ export default function FluxoCaixaSection({
                             className="w-full bg-brand-navy-card border border-brand-navy-bright rounded px-2 py-1.5 text-slate-100 font-sans focus:outline-none focus:border-brand-emerald cursor-pointer"
                           >
                             <option value="Despachante Credenciado">Despachante Credenciado</option>
-                            <option value="Revenda Veículos">Revenda Veículos (B2B)</option>
+                            <option value="Revenda de carros">Revenda de carros (B2B)</option>
                           </select>
                         </div>
                       </div>
@@ -2214,6 +2214,78 @@ export default function FluxoCaixaSection({
             </div>
           )}
         
+
+      {/* 3. RELATÓRIO DE EMOLUMENTOS MENSAL (FORCE VISIBLE FOR MASTERS) */}
+      {hasCrudAccess && (
+        <div className="bg-brand-navy-card border border-brand-navy-bright rounded-2xl shadow-lg p-5 mb-6 animate-fade-in">
+          <div className="flex justify-between items-center mb-4">
+            <div>
+              <h3 className="font-display font-semibold text-sm text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                <FileText className="w-4.5 h-4.5 text-brand-emerald" />
+                Relatório de Emolumentos
+              </h3>
+              <p className="text-[11px] text-slate-400">Consolidado de serviços do mês selecionado</p>
+            </div>
+            <div className="flex gap-2 items-center">
+              <select
+                value={selectedMesReferencia}
+                onChange={(e) => setSelectedMesReferencia(e.target.value)}
+                className="bg-brand-navy-deep border border-brand-navy-bright rounded-lg px-3 py-1.5 text-xs text-slate-200 font-sans focus:outline-none focus:border-brand-emerald cursor-pointer"
+              >
+                <option value="ATUAL">Mês Atual (Tempo Real)</option>
+                {historicoEmolumentos.map(h => (
+                  <option key={h.id || h.mes_referencia} value={h.mes_referencia}>{h.mes_referencia} (Fechado)</option>
+                ))}
+              </select>
+              {selectedMesReferencia === 'ATUAL' && (
+                <button
+                  onClick={handleSalvarCompetenciaMensal}
+                  disabled={isSavingEmolumentos || emolumentosMesAtual.length === 0}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-emerald hover:bg-emerald-400 text-brand-navy-deep font-bold font-sans text-xs rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                  {isSavingEmolumentos ? 'Salvando...' : 'Fechar Competência'}
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left">
+              <thead>
+                <tr className="border-b border-brand-navy-bright text-slate-400 uppercase font-sans tracking-wide text-[10px] bg-brand-navy-deep/40">
+                  <th className="py-2.5 px-4 font-bold">Serviço / Identificação</th>
+                  <th className="py-2.5 px-4 text-center font-bold">Qtd no Mês</th>
+                  <th className="py-2.5 px-4 text-right font-bold">Faturamento (Emolumentos)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-brand-navy-bright/40 font-mono">
+                {(selectedMesReferencia === 'ATUAL' 
+                  ? emolumentosMesAtual 
+                  : (historicoEmolumentos.find(h => h.mes_referencia === selectedMesReferencia)?.dados_consolidados || [])
+                ).map((item: any, idx: number) => (
+                  <tr key={idx} className="hover:bg-brand-navy-deep/20 text-slate-300">
+                    <td className="py-2 px-4 font-sans font-medium text-slate-200">{item.name}</td>
+                    <td className="py-2 px-4 text-center text-slate-400">{item.qty} un</td>
+                    <td className="py-2 px-4 text-right font-bold text-brand-emerald">{DecimalMath.formatBRL(item.total || item.total_emolumentos)}</td>
+                  </tr>
+                ))}
+                {(selectedMesReferencia === 'ATUAL' ? emolumentosMesAtual : (historicoEmolumentos.find(h => h.mes_referencia === selectedMesReferencia)?.dados_consolidados || [])).length === 0 && (
+                  <tr>
+                    <td colSpan={3} className="text-center py-6 text-slate-500 font-sans">Nenhum emolumento registrado neste período.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          {selectedMesReferencia !== 'ATUAL' && (
+            <div className="mt-3 flex justify-between items-center text-[10px] font-mono text-slate-500">
+              <span>Total de Emolumentos: <strong className="text-brand-emerald">{DecimalMath.formatBRL(historicoEmolumentos.find(h => h.mes_referencia === selectedMesReferencia)?.total_emolumentos || 0)}</strong></span>
+              <span>Fechado por: {historicoEmolumentos.find(h => h.mes_referencia === selectedMesReferencia)?.fechado_por || 'Sistema'}</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* CORE TRANSACTION LEDGER (HISTÓRICO REALTIME) */}
       <div className="bg-brand-navy-card border border-brand-navy-bright rounded-2xl shadow-lg overflow-hidden">
@@ -3458,75 +3530,7 @@ export default function FluxoCaixaSection({
             </div>
           </div>
 
-          {/* 3. RELATÓRIO DE EMOLUMENTOS MENSAL */}
-          <div className="bg-brand-navy-card border border-brand-navy-bright rounded-2xl shadow-lg p-5">
-            <div className="flex justify-between items-center mb-4">
-              <div>
-                <h3 className="font-display font-semibold text-sm text-slate-200 uppercase tracking-wider flex items-center gap-2">
-                  <FileText className="w-4.5 h-4.5 text-brand-emerald" />
-                  Relatório de Emolumentos
-                </h3>
-                <p className="text-[11px] text-slate-400">Consolidado de serviços do mês selecionado</p>
-              </div>
-              <div className="flex gap-2 items-center">
-                <select
-                  value={selectedMesReferencia}
-                  onChange={(e) => setSelectedMesReferencia(e.target.value)}
-                  className="bg-brand-navy-deep border border-brand-navy-bright rounded-lg px-3 py-1.5 text-xs text-slate-200 font-sans focus:outline-none focus:border-brand-emerald cursor-pointer"
-                >
-                  <option value="ATUAL">Mês Atual (Tempo Real)</option>
-                  {historicoEmolumentos.map(h => (
-                    <option key={h.id || h.mes_referencia} value={h.mes_referencia}>{h.mes_referencia} (Fechado)</option>
-                  ))}
-                </select>
-                {selectedMesReferencia === 'ATUAL' && (
-                  <button
-                    onClick={handleSalvarCompetenciaMensal}
-                    disabled={isSavingEmolumentos || emolumentosMesAtual.length === 0}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-emerald hover:bg-emerald-400 text-brand-navy-deep font-bold font-sans text-xs rounded-lg transition-colors cursor-pointer disabled:opacity-50"
-                  >
-                    <Lock className="w-3.5 h-3.5" />
-                    {isSavingEmolumentos ? 'Salvando...' : 'Fechar Competência'}
-                  </button>
-                )}
-              </div>
-            </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left">
-                <thead>
-                  <tr className="border-b border-brand-navy-bright text-slate-400 uppercase font-sans tracking-wide text-[10px] bg-brand-navy-deep/40">
-                    <th className="py-2.5 px-4 font-bold">Serviço / Identificação</th>
-                    <th className="py-2.5 px-4 text-center font-bold">Qtd no Mês</th>
-                    <th className="py-2.5 px-4 text-right font-bold">Faturamento (Emolumentos)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-brand-navy-bright/40 font-mono">
-                  {(selectedMesReferencia === 'ATUAL' 
-                    ? emolumentosMesAtual 
-                    : (historicoEmolumentos.find(h => h.mes_referencia === selectedMesReferencia)?.dados_consolidados || [])
-                  ).map((item: any, idx: number) => (
-                    <tr key={idx} className="hover:bg-brand-navy-deep/20 text-slate-300">
-                      <td className="py-2 px-4 font-sans font-medium text-slate-200">{item.name}</td>
-                      <td className="py-2 px-4 text-center text-slate-400">{item.qty} un</td>
-                      <td className="py-2 px-4 text-right font-bold text-brand-emerald">{DecimalMath.formatBRL(item.total || item.total_emolumentos)}</td>
-                    </tr>
-                  ))}
-                  {(selectedMesReferencia === 'ATUAL' ? emolumentosMesAtual : (historicoEmolumentos.find(h => h.mes_referencia === selectedMesReferencia)?.dados_consolidados || [])).length === 0 && (
-                    <tr>
-                      <td colSpan={3} className="text-center py-6 text-slate-500 font-sans">Nenhum emolumento registrado neste período.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            {selectedMesReferencia !== 'ATUAL' && (
-              <div className="mt-3 flex justify-between items-center text-[10px] font-mono text-slate-500">
-                <span>Total de Emolumentos: <strong className="text-brand-emerald">{DecimalMath.formatBRL(historicoEmolumentos.find(h => h.mes_referencia === selectedMesReferencia)?.total_emolumentos || 0)}</strong></span>
-                <span>Fechado por: {historicoEmolumentos.find(h => h.mes_referencia === selectedMesReferencia)?.fechado_por || 'Sistema'}</span>
-              </div>
-            )}
-          </div>
         </>
       )}
 
