@@ -170,6 +170,12 @@ export default function FluxoCaixaSection({
   // Modal de Reemissão Centralizado em Tela Cheia
   const [viewHistoryAta, setViewHistoryAta] = useState<any | null>(null);
 
+  // Estados para o Relatório de Emolumentos Mensal
+  const [emolumentosMesAtual, setEmolumentosMesAtual] = useState<any[]>([]);
+  const [historicoEmolumentos, setHistoricoEmolumentos] = useState<any[]>([]);
+  const [selectedMesReferencia, setSelectedMesReferencia] = useState<string>('ATUAL');
+  const [isSavingEmolumentos, setIsSavingEmolumentos] = useState(false);
+
   // Local notification setup for Fintech-like alerts (avoids window.alert inside iframe)
   const [localToast, setLocalToast] = useState<{title: string, message: string} | null>(null);
   const addToastLocal = (title: string, message: string) => {
@@ -714,6 +720,93 @@ export default function FluxoCaixaSection({
 
     fetchOperators();
   }, []);
+
+  // Efeito para carregar Relatório de Emolumentos
+  useEffect(() => {
+    const fetchEmolumentos = async () => {
+      // 1. Calcula o mês atual a partir de transactions (D+0 a D-30 no mesmo mês)
+      const now = new Date();
+      const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      
+      const grouped = transactions.reduce((acc: any, tx) => {
+        if (tx.status === 'CANCELLED' || (tx as any).status_conciliacao === 'CANCELLED') return acc;
+        
+        // Verifica se é do mês atual
+        const txDate = new Date(tx.timestamp || (tx as any).criado_em);
+        const txMonth = `${txDate.getFullYear()}-${String(txDate.getMonth() + 1).padStart(2, '0')}`;
+        
+        if (txMonth === currentMonth) {
+          tx.items?.forEach((item: any) => {
+            if (!acc[item.name]) acc[item.name] = { name: item.name, qty: 0, total: 0 };
+            acc[item.name].qty += item.quantity || 1;
+            acc[item.name].total += parseFloat(item.subtotal || item.customValue || '0');
+          });
+        }
+        return acc;
+      }, {});
+      
+      const arr = Object.values(grouped).sort((a: any, b: any) => b.total - a.total);
+      setEmolumentosMesAtual(arr);
+
+      // 2. Busca histórico do Supabase
+      try {
+        const { data, error } = await supabase
+          .from('historico_emolumentos_mensal')
+          .select('*')
+          .order('mes_referencia', { ascending: false });
+          
+        if (!error && data) {
+          setHistoricoEmolumentos(data);
+        }
+      } catch (e) {
+        console.error('Erro ao buscar historico de emolumentos:', e);
+      }
+    };
+    
+    fetchEmolumentos();
+  }, [transactions]);
+
+  const handleSalvarCompetenciaMensal = async () => {
+    const now = new Date();
+    const mesRef = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    
+    // Check se já existe
+    if (historicoEmolumentos.some(h => h.mes_referencia === mesRef)) {
+      addToastLocal('Aviso', `A competência de ${mesRef} já está registrada no histórico!`);
+      return;
+    }
+    
+    const totalMes = emolumentosMesAtual.reduce((sum, item) => sum + item.total, 0);
+    
+    setIsSavingEmolumentos(true);
+    try {
+      const { error } = await supabase
+        .from('historico_emolumentos_mensal')
+        .insert({
+          mes_referencia: mesRef,
+          total_emolumentos: totalMes,
+          dados_consolidados: emolumentosMesAtual,
+          fechado_por: rlsSession?.email || 'Sistema'
+        });
+        
+      if (error) throw error;
+      
+      addToastLocal('Sucesso', `Competência de ${mesRef} salva com sucesso!`);
+      
+      // Refresh
+      const { data } = await supabase
+        .from('historico_emolumentos_mensal')
+        .select('*')
+        .order('mes_referencia', { ascending: false });
+      if (data) setHistoricoEmolumentos(data);
+      
+    } catch (e: any) {
+      console.error('Erro ao salvar competência:', e);
+      addToastLocal('Erro', 'Falha ao salvar a competência (A tabela foi criada no Supabase?)');
+    } finally {
+      setIsSavingEmolumentos(false);
+    }
+  };
   const [showAddUserForm, setShowAddUserForm] = useState(false);
   const [userFormName, setUserFormName] = useState('');
   const [userFormEmail, setUserFormEmail] = useState('');
@@ -3363,6 +3456,76 @@ export default function FluxoCaixaSection({
                 </tbody>
               </table>
             </div>
+          </div>
+
+          {/* 3. RELATÓRIO DE EMOLUMENTOS MENSAL */}
+          <div className="bg-brand-navy-card border border-brand-navy-bright rounded-2xl shadow-lg p-5">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h3 className="font-display font-semibold text-sm text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                  <FileText className="w-4.5 h-4.5 text-brand-emerald" />
+                  Relatório de Emolumentos
+                </h3>
+                <p className="text-[11px] text-slate-400">Consolidado de serviços do mês selecionado</p>
+              </div>
+              <div className="flex gap-2 items-center">
+                <select
+                  value={selectedMesReferencia}
+                  onChange={(e) => setSelectedMesReferencia(e.target.value)}
+                  className="bg-brand-navy-deep border border-brand-navy-bright rounded-lg px-3 py-1.5 text-xs text-slate-200 font-sans focus:outline-none focus:border-brand-emerald cursor-pointer"
+                >
+                  <option value="ATUAL">Mês Atual (Tempo Real)</option>
+                  {historicoEmolumentos.map(h => (
+                    <option key={h.id || h.mes_referencia} value={h.mes_referencia}>{h.mes_referencia} (Fechado)</option>
+                  ))}
+                </select>
+                {selectedMesReferencia === 'ATUAL' && (
+                  <button
+                    onClick={handleSalvarCompetenciaMensal}
+                    disabled={isSavingEmolumentos || emolumentosMesAtual.length === 0}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-emerald hover:bg-emerald-400 text-brand-navy-deep font-bold font-sans text-xs rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    <Lock className="w-3.5 h-3.5" />
+                    {isSavingEmolumentos ? 'Salvando...' : 'Fechar Competência'}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left">
+                <thead>
+                  <tr className="border-b border-brand-navy-bright text-slate-400 uppercase font-sans tracking-wide text-[10px] bg-brand-navy-deep/40">
+                    <th className="py-2.5 px-4 font-bold">Serviço / Identificação</th>
+                    <th className="py-2.5 px-4 text-center font-bold">Qtd no Mês</th>
+                    <th className="py-2.5 px-4 text-right font-bold">Faturamento (Emolumentos)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-brand-navy-bright/40 font-mono">
+                  {(selectedMesReferencia === 'ATUAL' 
+                    ? emolumentosMesAtual 
+                    : (historicoEmolumentos.find(h => h.mes_referencia === selectedMesReferencia)?.dados_consolidados || [])
+                  ).map((item: any, idx: number) => (
+                    <tr key={idx} className="hover:bg-brand-navy-deep/20 text-slate-300">
+                      <td className="py-2 px-4 font-sans font-medium text-slate-200">{item.name}</td>
+                      <td className="py-2 px-4 text-center text-slate-400">{item.qty} un</td>
+                      <td className="py-2 px-4 text-right font-bold text-brand-emerald">{DecimalMath.formatBRL(item.total || item.total_emolumentos)}</td>
+                    </tr>
+                  ))}
+                  {(selectedMesReferencia === 'ATUAL' ? emolumentosMesAtual : (historicoEmolumentos.find(h => h.mes_referencia === selectedMesReferencia)?.dados_consolidados || [])).length === 0 && (
+                    <tr>
+                      <td colSpan={3} className="text-center py-6 text-slate-500 font-sans">Nenhum emolumento registrado neste período.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            {selectedMesReferencia !== 'ATUAL' && (
+              <div className="mt-3 flex justify-between items-center text-[10px] font-mono text-slate-500">
+                <span>Total de Emolumentos: <strong className="text-brand-emerald">{DecimalMath.formatBRL(historicoEmolumentos.find(h => h.mes_referencia === selectedMesReferencia)?.total_emolumentos || 0)}</strong></span>
+                <span>Fechado por: {historicoEmolumentos.find(h => h.mes_referencia === selectedMesReferencia)?.fechado_por || 'Sistema'}</span>
+              </div>
+            )}
           </div>
         </>
       )}
