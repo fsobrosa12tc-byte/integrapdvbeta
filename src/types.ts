@@ -25,7 +25,7 @@ export interface ClientProfile {
   phone?: string; // Telefone do despachante/cliente
   outstandingBalance?: string; // Saldo devedor da conta corrente do despachante
   guiasPendentes?: number; // Quantidade de guias pendentes de faturamento
-  category: 'Despachante Credenciado' | 'Particular' | 'Revenda de carros';
+  category: 'Despachante Credenciado' | 'Particular' | 'Revenda de Veículos';
   status: 'Ativo' | 'Bloqueado';
 }
 

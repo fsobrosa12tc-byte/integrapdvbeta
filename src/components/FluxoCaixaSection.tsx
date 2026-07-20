@@ -684,7 +684,7 @@ export default function FluxoCaixaSection({
   const [clientFormName, setClientFormName] = useState('');
   const [clientFormCpfCnpj, setClientFormCpfCnpj] = useState('');
   const [clientFormPhone, setClientFormPhone] = useState('');
-  const [clientFormCategory, setClientFormCategory] = useState<'Despachante Credenciado' | 'Revenda de carros'>('Despachante Credenciado');
+  const [clientFormCategory, setClientFormCategory] = useState<'Despachante Credenciado' | 'Revenda de Veículos'>('Despachante Credenciado');
 
   const [editingClientId, setEditingClientId] = useState<string | null>(null);
   const [editFormName, setEditFormName] = useState('');
@@ -1597,7 +1597,7 @@ export default function FluxoCaixaSection({
                             className="w-full bg-brand-navy-card border border-brand-navy-bright rounded px-2 py-1.5 text-slate-100 font-sans focus:outline-none focus:border-brand-emerald cursor-pointer"
                           >
                             <option value="Despachante Credenciado">Despachante Credenciado</option>
-                            <option value="Revenda de carros">Revenda de carros (B2B)</option>
+                            <option value="Revenda de Veículos">Revenda de Veículos (B2B)</option>
                           </select>
                         </div>
                       </div>
