@@ -227,6 +227,53 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
   // Faturamento de Guia (Convênio) Module States
   const [atendimentoMode, setAtendimentoMode] = useState<'LANCHAMENTO' | 'FATURAMENTO_GUIA'>('LANCHAMENTO');
   const [selectedDebtor, setSelectedDebtor] = useState<ClientProfile | null>(null);
+  const [debtorHistory, setDebtorHistory] = useState<any[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+  const handleSelectDebtor = async (client: ClientProfile) => {
+    if (selectedDebtor?.id === client.id) {
+      setSelectedDebtor(null);
+      setDebtorHistory([]);
+      return;
+    }
+    
+    setSelectedDebtor(client);
+    setIsLoadingHistory(true);
+    setDebtorHistory([]);
+    
+    try {
+      const { data, error } = await supabase
+        .from('transacoes')
+        .select('id, valor_bruto, valor_liquido, criado_em, operador_email, itens, cliente_nome, forma_pagamento, status_conciliacao, status')
+        .eq('forma_pagamento', 'BOLETO')
+        .neq('status_conciliacao', 'CANCELLED')
+        .neq('status', 'CANCELLED')
+        .order('criado_em', { ascending: false });
+        
+      if (error) throw error;
+      
+      const history = (data || []).filter(tx => {
+         const rawClientName = tx.cliente_nome || 'Particular (Consumidor)';
+         const cpfCnpjMatch = rawClientName.match(/\((?:CPF|CNPJ):\s*([^\)]+)\)/i);
+         const clientCpfCnpj = cpfCnpjMatch ? cpfCnpjMatch[1].trim() : '000.000.000-00';
+         const clientName = rawClientName.replace(/\s*\((?:CPF|CNPJ):[^\)]+\)/i, '').trim();
+
+         const isThisClient = (clientCpfCnpj !== '000.000.000-00' && clientCpfCnpj === client.cpfCnpj) || clientName === client.name;
+         
+         if (isThisClient) {
+            const txItems = tx.itens || [];
+            return txItems.some((item: any) => item.type === 'CONVÊNIO');
+         }
+         return false;
+      });
+      
+      setDebtorHistory(history);
+    } catch (err) {
+      console.error('Erro ao carregar histórico do despachante:', err);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
 
   // Helper toast notifier (using window/element triggers or state if needed, but we have onAddTransaction/etc. Let's make a mini toast triggered in UI or simply alert/toast if appropriate)
   const [showConvenioToast, setShowConvenioToast] = useState(false);
@@ -1468,28 +1515,55 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
                         .map(client => {
                           const isSelected = selectedDebtor?.id === client.id;
                           return (
-                            <tr
-                              key={client.id}
-                              onClick={() => setSelectedDebtor(client)}
-                              className={`cursor-pointer transition-colors ${
-                                isSelected
-                                  ? 'bg-brand-emerald/10 text-brand-emerald'
-                                  : 'hover:bg-brand-navy-deep/40 text-slate-300'
-                              }`}
-                            >
-                              <td className="px-4 py-3">
-                                <span className={`block font-semibold ${isSelected ? 'text-brand-emerald' : 'text-slate-200'}`}>
-                                  {client.name}
-                                </span>
-                                <span className="text-[9px] text-slate-500 font-mono block mt-0.5">{client.cpfCnpj} · {client.category}</span>
-                              </td>
-                              <td className="px-4 py-3 text-center font-mono font-bold text-slate-200">
-                                {client.guiasPendentes || 0}
-                              </td>
-                              <td className="px-4 py-3 text-right font-mono font-bold tracking-tight text-slate-100">
-                                <span className="text-brand-emerald">{DecimalMath.formatBRL(client.outstandingBalance || '0.00')}</span>
-                              </td>
-                            </tr>
+                            <React.Fragment key={client.id}>
+                              <tr
+                                onClick={() => handleSelectDebtor(client)}
+                                className={`cursor-pointer transition-colors ${
+                                  isSelected
+                                    ? 'bg-brand-emerald/10 text-brand-emerald'
+                                    : 'hover:bg-brand-navy-deep/40 text-slate-300'
+                                }`}
+                              >
+                                <td className="px-4 py-3">
+                                  <span className={`block font-semibold ${isSelected ? 'text-brand-emerald' : 'text-slate-200'}`}>
+                                    {client.name}
+                                  </span>
+                                  <span className="text-[9px] text-slate-500 font-mono block mt-0.5">{client.cpfCnpj} · {client.category}</span>
+                                </td>
+                                <td className="px-4 py-3 text-center font-mono font-bold text-slate-200">
+                                  {client.guiasPendentes || 0}
+                                </td>
+                                <td className="px-4 py-3 text-right font-mono font-bold tracking-tight text-slate-100">
+                                  <span className="text-brand-emerald">{DecimalMath.formatBRL(client.outstandingBalance || '0.00')}</span>
+                                </td>
+                              </tr>
+                              {isSelected && (
+                                <tr>
+                                  <td colSpan={3} className="px-4 py-4 bg-brand-navy-deep/60 border-t border-brand-navy-bright/10">
+                                    <div className="space-y-3">
+                                      <h4 className="text-[11px] font-bold text-brand-emerald uppercase tracking-wider">Histórico de Lançamentos em Aberto</h4>
+                                      {isLoadingHistory ? (
+                                        <div className="text-xs text-slate-400">Carregando detalhes...</div>
+                                      ) : debtorHistory.length > 0 ? (
+                                        <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
+                                          {debtorHistory.map(tx => (
+                                            <div key={tx.id} className="flex justify-between items-center bg-brand-navy-bright/20 p-2 rounded-lg border border-brand-navy-bright/10">
+                                              <div className="flex flex-col">
+                                                <span className="text-xs text-slate-200 font-medium">{new Date(tx.criado_em).toLocaleString('pt-BR')}</span>
+                                                <span className="text-[10px] text-slate-400 font-mono">Operador: {tx.operador_email}</span>
+                                              </div>
+                                              <span className="text-brand-emerald font-bold font-mono text-xs">{DecimalMath.formatBRL(tx.valor_liquido || tx.valor_bruto || '0')}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <div className="text-xs text-slate-400">Nenhum detalhe encontrado para o saldo atual.</div>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
                           );
                         })
                     ) : (
