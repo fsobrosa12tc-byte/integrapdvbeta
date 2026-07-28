@@ -2235,7 +2235,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
 
       {/* ENCERRAMENTO DO ATENDIMENTO - MODAL OVERLAY (CENTRALIZADO E OFUSCADO) */}
       {checkoutStage === 'PAYMENT' && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-[8px] z-[990] flex items-center justify-center p-4 overflow-y-auto">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div 
             id="encerramento-atendimento-modal"
             className="bg-brand-navy-card border border-brand-navy-bright w-[480px] max-w-[90vw] rounded-2xl shadow-2xl relative animate-scale-up text-slate-300 overflow-hidden"
@@ -2419,7 +2419,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
             </div>
 
             {/* Modal Footer / Action Button */}
-            <div className="p-5 bg-brand-navy-deep/40 border-t border-brand-navy-bright">
+            <div className="p-5 bg-brand-navy-deep/40 border-t border-brand-navy-bright flex flex-col gap-2">
               <button
                 id="checkout-finalize-btn"
                 type="button"
@@ -2434,6 +2434,14 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
               >
                 <CheckSquare className="w-4 h-4" />
                 Encerrar Atendimento e Emitir Cupom
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => setCheckoutStage('CART')}
+                className="w-full py-3 bg-gray-800 hover:bg-gray-700 text-white font-sans font-bold text-xs rounded-lg transition border border-gray-750 flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                Cancelar / Adicionar mais itens
               </button>
             </div>
 
