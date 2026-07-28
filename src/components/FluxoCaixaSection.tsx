@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { 
+import {
   ArrowUpRight, ArrowDownLeft, TrendingUp, DollarSign,
   Activity, Calendar, Filter, RotateCcw, Eye, Search,
   CheckCircle2, AlertTriangle, XCircle, CreditCard, Award, FileSpreadsheet,
@@ -44,34 +44,34 @@ const generatePasswordExact8 = (): string => {
   const uppers = "ABCDEFGHJKLMNPQRSTUVWXYZ";
   const lowers = "abcdefghijkmnopqrstuvwxyz";
   const digits = "23456789";
-  
+
   const arrUppers = uppers.split('');
   const arrLowers = lowers.split('');
   const arrDigits = digits.split('');
-  
+
   const picked: string[] = [];
-  
+
   const draw = (arr: string[]) => {
     const idx = Math.floor(Math.random() * arr.length);
     const char = arr[idx];
     arr.splice(idx, 1);
     return char;
   };
-  
+
   picked.push(draw(arrUppers));
   picked.push(draw(arrLowers));
   picked.push(draw(arrDigits));
-  
+
   const remainingPool = [...arrUppers, ...arrLowers, ...arrDigits];
   for (let i = 0; i < 5; i++) {
     picked.push(draw(remainingPool));
   }
-  
+
   for (let i = picked.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [picked[i], picked[j]] = [picked[j], picked[i]];
   }
-  
+
   return picked.join('');
 };
 
@@ -83,11 +83,11 @@ const parseOperationalDate = (dateStr: string): string => {
   return dateStr;
 };
 
-export default function FluxoCaixaSection({ 
-  transactions, 
-  onUnloadTransaction, 
-  rlsSession, 
-  clients, 
+export default function FluxoCaixaSection({
+  transactions,
+  onUnloadTransaction,
+  rlsSession,
+  clients,
   caixaState,
   setClients,
   isMaster = false,
@@ -175,9 +175,16 @@ export default function FluxoCaixaSection({
   const [historicoEmolumentos, setHistoricoEmolumentos] = useState<any[]>([]);
   const [selectedMesReferencia, setSelectedMesReferencia] = useState<string>('ATUAL');
   const [isSavingEmolumentos, setIsSavingEmolumentos] = useState(false);
+  // Filtro de mês/ano para relatório: 'ATUAL' ou 'YYYY-MM'
+  const [emolFilterMonth, setEmolFilterMonth] = useState<string>(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [emolHistoricoMesData, setEmolHistoricoMesData] = useState<any[]>([]);
+  const [isLoadingEmolMes, setIsLoadingEmolMes] = useState(false);
 
   // Local notification setup for Fintech-like alerts (avoids window.alert inside iframe)
-  const [localToast, setLocalToast] = useState<{title: string, message: string} | null>(null);
+  const [localToast, setLocalToast] = useState<{ title: string, message: string } | null>(null);
   const addToastLocal = (title: string, message: string) => {
     setLocalToast({ title, message });
     setTimeout(() => setLocalToast(null), 4000);
@@ -196,7 +203,7 @@ export default function FluxoCaixaSection({
     isOpen: false,
     title: '',
     message: '',
-    onConfirm: () => {}
+    onConfirm: () => { }
   });
 
   const generateHash = (report: any) => {
@@ -234,17 +241,17 @@ export default function FluxoCaixaSection({
 
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(14);
-    doc.setTextColor(15, 23, 42); 
+    doc.setTextColor(15, 23, 42);
     doc.text('Marks Systems - CRVA 0018 Passo Fundo/RS', 105, currentY, { align: 'center' });
     currentY += 8;
 
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(11);
-    doc.setTextColor(30, 41, 59); 
+    doc.setTextColor(30, 41, 59);
     doc.text('REEMISSÃO SEGUNDA VIA - ATA DE ENCERRAMENTO E AUDITORIA', 105, currentY, { align: 'center' });
     currentY += 8;
 
-    doc.setDrawColor(226, 232, 240); 
+    doc.setDrawColor(226, 232, 240);
     doc.setLineWidth(0.5);
     doc.line(leftMargin, currentY, rightMargin, currentY);
     currentY += 6;
@@ -257,7 +264,7 @@ export default function FluxoCaixaSection({
 
     doc.setFont('Helvetica', 'normal');
     doc.setFontSize(8.5);
-    doc.setTextColor(15, 23, 42); 
+    doc.setTextColor(15, 23, 42);
 
     doc.text(`Terminal ID: ${report.terminalId}`, leftMargin, currentY);
     doc.text(`Horário Abertura: ${report.horarioAbertura || '08:00:00'}`, 115, currentY);
@@ -284,11 +291,11 @@ export default function FluxoCaixaSection({
     doc.text('2. TRANSPOSIÇÃO DE MOVIMENTAÇÃO CONTÁBIL INTEGRAL', leftMargin, currentY);
     currentY += 6;
 
-    doc.setDrawColor(203, 213, 225); 
+    doc.setDrawColor(203, 213, 225);
     doc.setLineWidth(0.3);
-    doc.setFillColor(241, 245, 249); 
+    doc.setFillColor(241, 245, 249);
     doc.rect(leftMargin, currentY, rightMargin - leftMargin, 6, 'F');
-    
+
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(8);
     doc.setTextColor(15, 23, 42);
@@ -318,7 +325,7 @@ export default function FluxoCaixaSection({
     addTableRow('(-) Sangrias (Retiradas Extraordinárias)', '(-)', DecimalMath.formatBRL(report.retiradas));
 
     currentY += 2;
-    doc.setFillColor(248, 250, 252); 
+    doc.setFillColor(248, 250, 252);
     doc.rect(leftMargin, currentY, rightMargin - leftMargin, 13, 'F');
     doc.line(leftMargin, currentY, rightMargin, currentY);
     doc.line(leftMargin, currentY + 13, rightMargin, currentY + 13);
@@ -351,12 +358,12 @@ export default function FluxoCaixaSection({
         doc.setFontSize(7.5);
         doc.setTextColor(15, 23, 42);
         doc.text(`[${evt.timestamp}] - ${evt.action}`, leftMargin + 2, currentY + 3.5);
-        
+
         doc.setFont('Helvetica', 'normal');
         doc.setFontSize(7.5);
         doc.setTextColor(71, 85, 105);
         doc.text(`Operador: ${evt.operadorName} (${evt.operadorEmail})`, leftMargin + 35, currentY + 3.5);
-        
+
         currentY += 5.5;
       });
       currentY += 4;
@@ -375,24 +382,24 @@ export default function FluxoCaixaSection({
 
     const isBatido = DecimalMath.toCents(report.divergencia) === 0;
     if (isBatido) {
-      doc.setFillColor(209, 250, 229); 
-      doc.setDrawColor(16, 185, 129); 
+      doc.setFillColor(209, 250, 229);
+      doc.setDrawColor(16, 185, 129);
     } else {
-      doc.setFillColor(254, 226, 226); 
-      doc.setDrawColor(239, 68, 68); 
+      doc.setFillColor(254, 226, 226);
+      doc.setDrawColor(239, 68, 68);
     }
     doc.rect(leftMargin, currentY, rightMargin - leftMargin, 12, 'FD');
 
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(8);
     if (isBatido) {
-      doc.setTextColor(6, 95, 70); 
+      doc.setTextColor(6, 95, 70);
       doc.text('SISTEMA CONCILIADO COM TOTAL PARIDADE COM SISTEMAS AUXILIARES OPERACIONAIS - R$ 0,00', leftMargin + 4, currentY + 4.5);
       doc.setFont('Helvetica', 'normal');
       doc.setFontSize(7);
       doc.text('As movimentações físicas efetuadas nos turnos de almoço batem precisamente com o relatório digital.', leftMargin + 4, currentY + 9);
     } else {
-      doc.setTextColor(153, 27, 27); 
+      doc.setTextColor(153, 27, 27);
       const labelText = report.status === 'Quebra de Caixa' ? 'QUEBRA APURADA: ' : 'SOBRA APURADA: +';
       doc.text(`INCONSISTÊNCIA DETECTADA - ${labelText}${DecimalMath.formatBRL(report.divergencia)}`, leftMargin + 4, currentY + 4.5);
       doc.setFont('Helvetica', 'normal');
@@ -417,7 +424,7 @@ export default function FluxoCaixaSection({
     const gap = 12;
 
     // Block 1
-    doc.setDrawColor(148, 163, 184); 
+    doc.setDrawColor(148, 163, 184);
     doc.setLineWidth(0.3);
     doc.line(sX, currentY, sX + bWidth, currentY);
     doc.setFont('Helvetica', 'bold');
@@ -470,7 +477,7 @@ export default function FluxoCaixaSection({
     });
 
     let currentY = 10;
-    
+
     // Cabeçalho da Reimpressão
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(8);
@@ -480,20 +487,20 @@ export default function FluxoCaixaSection({
 
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(10);
-    doc.setTextColor(15, 23, 42); 
+    doc.setTextColor(15, 23, 42);
     doc.text('MARKS SYSTEMS S.A.', 40, currentY, { align: 'center' });
     currentY += 4;
 
     doc.setFont('Helvetica', 'normal');
     doc.setFontSize(7);
-    doc.setTextColor(100, 116, 139); 
+    doc.setTextColor(100, 116, 139);
     doc.text('IntegraPDV Ecosystem Integration', 40, currentY, { align: 'center' });
     currentY += 3.5;
     doc.text('CNPJ: 10.392.482/0001-90 | POA - RS', 40, currentY, { align: 'center' });
     currentY += 5;
 
     // Divisória tracejada
-    doc.setDrawColor(203, 213, 225); 
+    doc.setDrawColor(203, 213, 225);
     doc.setLineWidth(0.2);
     doc.line(6, currentY, 74, currentY);
     currentY += 5;
@@ -501,7 +508,7 @@ export default function FluxoCaixaSection({
     // Metadados
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(7.5);
-    doc.setTextColor(71, 85, 105); 
+    doc.setTextColor(71, 85, 105);
     doc.text('DADOS DA TRANSAÇÃO ORIGINAL', 6, currentY);
     currentY += 4.5;
 
@@ -525,7 +532,7 @@ export default function FluxoCaixaSection({
 
     doc.text(`Cliente/B2B:`, 6, currentY);
     doc.setFont('Helvetica', 'bold');
-    doc.setTextColor(16, 185, 129); 
+    doc.setTextColor(16, 185, 129);
     const truncatedName = tx.clientName.length > 28 ? tx.clientName.slice(0, 25) + '...' : tx.clientName;
     doc.text(truncatedName, 74, currentY, { align: 'right' });
     doc.setTextColor(15, 23, 42);
@@ -554,7 +561,7 @@ export default function FluxoCaixaSection({
 
       const serviceNameTrunc = item.serviceName.length > 32 ? item.serviceName.slice(0, 29) + '...' : item.serviceName;
       doc.text(`${item.quantity}x ${serviceNameTrunc}`, 6, currentY);
-      
+
       doc.setFont('Helvetica', 'bold');
       doc.text(DecimalMath.formatBRL(item.subtotal), 74, currentY, { align: 'right' });
       currentY += 3.5;
@@ -598,7 +605,7 @@ export default function FluxoCaixaSection({
     currentY += 2.5;
 
     // Total Geral
-    doc.setFillColor(241, 245, 249); 
+    doc.setFillColor(241, 245, 249);
     doc.rect(6, currentY, 68, 10, 'F');
     doc.setDrawColor(203, 213, 225);
     doc.rect(6, currentY, 68, 10, 'D');
@@ -607,9 +614,9 @@ export default function FluxoCaixaSection({
     doc.setFontSize(7.5);
     doc.setTextColor(71, 85, 105);
     doc.text('TOTAL LÍQUIDO:', 10, currentY + 6.5);
-    
+
     doc.setFontSize(9);
-    doc.setTextColor(16, 185, 129); 
+    doc.setTextColor(16, 185, 129);
     doc.text(DecimalMath.formatBRL(tx.netTotal), 70, currentY + 6.5, { align: 'right' });
     currentY += 15;
 
@@ -623,7 +630,7 @@ export default function FluxoCaixaSection({
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(7);
     doc.setTextColor(15, 23, 42);
-    
+
     const hashOriginal = tx.hashAuditoria || tx.id.toUpperCase();
     const hashText = `AUT AUTENTICAÇÃO: ${hashOriginal}`;
     const splitHash = doc.splitTextToSize(hashText, 66);
@@ -636,13 +643,13 @@ export default function FluxoCaixaSection({
     doc.text(`Segunda via reemitida em ${new Date().toLocaleString('pt-BR')}`, 40, currentY, { align: 'center' });
 
     const pdfUrl = doc.output('bloburl');
-    
+
     // Cria um iframe invisível para abrir a janela de impressão nativa do sistema
     const iframe = document.createElement('iframe');
     iframe.style.display = 'none';
     iframe.src = pdfUrl.toString();
     document.body.appendChild(iframe);
-    
+
     iframe.onload = () => {
       iframe.contentWindow?.focus();
       iframe.contentWindow?.print();
@@ -651,20 +658,20 @@ export default function FluxoCaixaSection({
         document.body.removeChild(iframe);
       }, 5000);
     };
-    
+
     addToastLocal('Sucesso', 'Segunda via de auditoria enviada para impressão!');
   };
 
   // Advanced temporal select filters for BI Master (Hoje, Ontem, Últimos 7 Dias, Mês Atual e Período Personalizado)
   const [activeDateFilter, setActiveDateFilter] = useState<'HOJE' | 'ONTEM' | '7DIAS' | 'MES' | 'CUSTOM'>('HOJE');
-  
+
   const getTodayDateString = () => {
     const d = new Date();
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
     return `${d.getFullYear()}-${month}-${day}`;
   };
-  
+
   const [customStartDate, setCustomStartDate] = useState<string>(() => {
     const d = new Date();
     const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -721,40 +728,70 @@ export default function FluxoCaixaSection({
     fetchOperators();
   }, []);
 
-  // Efeito para carregar Relatório de Emolumentos
+  // Gera lista dos últimos 12 meses para o seletor de competência
+  const getUltimos12Meses = (): { value: string; label: string }[] => {
+    const meses = [];
+    const now = new Date();
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const label = d.toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+      meses.push({ value, label: label.charAt(0).toUpperCase() + label.slice(1) });
+    }
+    return meses;
+  };
+
+  // Efeito para carregar Relatório de Emolumentos do mês corrente (em memória)
   useEffect(() => {
     const fetchEmolumentos = async () => {
-      // 1. Calcula o mês atual a partir de transactions (D+0 a D-30 no mesmo mês)
       const now = new Date();
       const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-      
+
+      // Agrupamento corrigido: usa item.serviceName (chave real do objeto)
       const grouped = transactions.reduce((acc: any, tx) => {
         if (tx.status === 'CANCELLED' || (tx as any).status_conciliacao === 'CANCELLED') return acc;
-        
-        // Verifica se é do mês atual
+
         const txDate = new Date(tx.timestamp || (tx as any).criado_em);
         const txMonth = `${txDate.getFullYear()}-${String(txDate.getMonth() + 1).padStart(2, '0')}`;
-        
+
         if (txMonth === currentMonth) {
           tx.items?.forEach((item: any) => {
-            if (!acc[item.name]) acc[item.name] = { name: item.name, qty: 0, total: 0 };
-            acc[item.name].qty += item.quantity || 1;
-            acc[item.name].total += parseFloat(item.subtotal || item.customValue || '0');
+            // Usa serviceName como chave principal (campo real das transações)
+            const key = item.serviceName || item.name || 'Serviço Sem Identificação';
+            const valorUnit = parseFloat(item.value || item.customValue || item.baseValue || '0');
+            const qty = item.quantity || 1;
+            const subtotalItem = parseFloat(item.subtotal || '0') || (valorUnit * qty);
+
+            if (!acc[key]) {
+              acc[key] = {
+                serviceName: key,
+                type: item.type || 'GERAL',
+                qty: 0,
+                valorUnitario: valorUnit,
+                total: 0
+              };
+            }
+            acc[key].qty += qty;
+            acc[key].total += subtotalItem;
+            // Recalcula valor unitário médio
+            if (acc[key].qty > 0) {
+              acc[key].valorUnitario = acc[key].total / acc[key].qty;
+            }
           });
         }
         return acc;
       }, {});
-      
+
       const arr = Object.values(grouped).sort((a: any, b: any) => b.total - a.total);
       setEmolumentosMesAtual(arr);
 
-      // 2. Busca histórico do Supabase
+      // Busca histórico de fechamentos do Supabase
       try {
         const { data, error } = await supabase
           .from('historico_emolumentos_mensal')
           .select('*')
           .order('mes_referencia', { ascending: false });
-          
+
         if (!error && data) {
           setHistoricoEmolumentos(data);
         }
@@ -762,22 +799,90 @@ export default function FluxoCaixaSection({
         console.error('Erro ao buscar historico de emolumentos:', e);
       }
     };
-    
+
     fetchEmolumentos();
   }, [transactions]);
+
+  // Efeito para buscar dados históricos no Supabase quando muda o mês selecionado
+  useEffect(() => {
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+    // Mês corrente: usa dados em memória (emolumentosMesAtual)
+    if (emolFilterMonth === currentMonth) {
+      setEmolHistoricoMesData([]);
+      return;
+    }
+
+    // Mês histórico: busca direto no Supabase
+    const fetchMesHistorico = async () => {
+      setIsLoadingEmolMes(true);
+      try {
+        // Primeiro verifica se já existe fechamento gravado
+        const fechado = historicoEmolumentos.find(h => h.mes_referencia === emolFilterMonth);
+        if (fechado && fechado.dados_consolidados) {
+          setEmolHistoricoMesData(fechado.dados_consolidados);
+          setIsLoadingEmolMes(false);
+          return;
+        }
+
+        // Caso contrário, calcula direto das transações do banco
+        const startDate = `${emolFilterMonth}-01`;
+        const [year, month] = emolFilterMonth.split('-').map(Number);
+        const lastDay = new Date(year, month, 0).getDate();
+        const endDate = `${emolFilterMonth}-${String(lastDay).padStart(2, '0')}`;
+
+        const { data: txData, error } = await supabase
+          .from('transacoes')
+          .select('itens, status_conciliacao')
+          .gte('data_operacional', startDate)
+          .lte('data_operacional', endDate)
+          .neq('status_conciliacao', 'CANCELLED');
+
+        if (error) throw error;
+
+        const grouped: any = {};
+        (txData || []).forEach((tx: any) => {
+          (tx.itens || []).forEach((item: any) => {
+            const key = item.serviceName || item.name || 'Serviço Sem Identificação';
+            const valorUnit = parseFloat(item.value || item.customValue || '0');
+            const qty = item.quantity || 1;
+            const subtotalItem = parseFloat(item.subtotal || '0') || (valorUnit * qty);
+
+            if (!grouped[key]) {
+              grouped[key] = { serviceName: key, type: item.type || 'GERAL', qty: 0, valorUnitario: valorUnit, total: 0 };
+            }
+            grouped[key].qty += qty;
+            grouped[key].total += subtotalItem;
+            if (grouped[key].qty > 0) grouped[key].valorUnitario = grouped[key].total / grouped[key].qty;
+          });
+        });
+
+        const arr = Object.values(grouped).sort((a: any, b: any) => b.total - a.total);
+        setEmolHistoricoMesData(arr);
+      } catch (e) {
+        console.error('Erro ao buscar emolumentos históricos:', e);
+        addToastLocal('Aviso', 'Não foi possível carregar o histórico deste mês.');
+      } finally {
+        setIsLoadingEmolMes(false);
+      }
+    };
+
+    fetchMesHistorico();
+  }, [emolFilterMonth, historicoEmolumentos]);
 
   const handleSalvarCompetenciaMensal = async () => {
     const now = new Date();
     const mesRef = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    
+
     // Check se já existe
     if (historicoEmolumentos.some(h => h.mes_referencia === mesRef)) {
       addToastLocal('Aviso', `A competência de ${mesRef} já está registrada no histórico!`);
       return;
     }
-    
+
     const totalMes = emolumentosMesAtual.reduce((sum, item) => sum + item.total, 0);
-    
+
     setIsSavingEmolumentos(true);
     try {
       const { error } = await supabase
@@ -788,18 +893,18 @@ export default function FluxoCaixaSection({
           dados_consolidados: emolumentosMesAtual,
           fechado_por: rlsSession?.email || 'Sistema'
         });
-        
+
       if (error) throw error;
-      
+
       addToastLocal('Sucesso', `Competência de ${mesRef} salva com sucesso!`);
-      
+
       // Refresh
       const { data } = await supabase
         .from('historico_emolumentos_mensal')
         .select('*')
         .order('mes_referencia', { ascending: false });
       if (data) setHistoricoEmolumentos(data);
-      
+
     } catch (e: any) {
       console.error('Erro ao salvar competência:', e);
       addToastLocal('Erro', 'Falha ao salvar a competência (A tabela foi criada no Supabase?)');
@@ -857,7 +962,7 @@ export default function FluxoCaixaSection({
     if (activeTurnos.length === 0) {
       return [];
     }
-    
+
     return transactions.filter(tx => {
       if (!tx) return false;
       if (tx.status === 'CANCELLED') return false;
@@ -869,13 +974,13 @@ export default function FluxoCaixaSection({
       } else {
         // Fallback para dados legados de teste que não possuem turno_id
         const opEmail = (tx.operadorEmail || '').toLowerCase();
-        const hasClosedTurno = (historicalClosings || []).some((h: any) => 
+        const hasClosedTurno = (historicalClosings || []).some((h: any) =>
           (h.status === 'Fechado' || h.status === 'CONCILIADO' || h.status_turno === 'CONCILIADO') &&
           (h.usuario_master || h.operador_email || '').toLowerCase() === opEmail
         );
 
         if (!hasClosedTurno) {
-          isMatched = activeTurnos.some((t: any) => 
+          isMatched = activeTurnos.some((t: any) =>
             normalizeOperationalDate(t.dataOperacional || t.data_operacional) === normalizeOperationalDate(tx.timestamp) &&
             (t.terminalId === tx.terminalId || t.terminal_id === tx.terminalId) &&
             (t.usuarioMaster === tx.operadorEmail || t.operador_email === tx.operadorEmail)
@@ -889,13 +994,13 @@ export default function FluxoCaixaSection({
 
       const txDateObj = new Date(tx.timestamp);
       if (isNaN(txDateObj.getTime())) return false;
-      
+
       // Setup relative date references matching our current operational date
       const now = new Date();
-      
+
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
       const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-      
+
       const yesterdayStart = new Date(todayStart);
       yesterdayStart.setDate(yesterdayStart.getDate() - 1);
       const yesterdayEnd = new Date(todayStart);
@@ -961,7 +1066,7 @@ export default function FluxoCaixaSection({
         let matchDate = false;
         const now = new Date();
         const todayStr = now.toLocaleDateString('pt-BR');
-        
+
         const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
         const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
         const yesterdayStart = new Date(todayStart);
@@ -999,10 +1104,10 @@ export default function FluxoCaixaSection({
       });
     }
 
-    const isTodayRange = activeDateFilter === 'HOJE' || 
-      (activeDateFilter === 'CUSTOM' && 
-       customStartDate <= new Date().toISOString().split('T')[0] && 
-       customEndDate >= new Date().toISOString().split('T')[0]);
+    const isTodayRange = activeDateFilter === 'HOJE' ||
+      (activeDateFilter === 'CUSTOM' &&
+        customStartDate <= new Date().toISOString().split('T')[0] &&
+        customEndDate >= new Date().toISOString().split('T')[0]);
 
     if (isTodayRange && caixaState && caixaState.status === 'aberto' && caixaState.sangrias) {
       caixaState.sangrias.forEach((s: any) => {
@@ -1106,10 +1211,10 @@ export default function FluxoCaixaSection({
         physicalCashPaid = DecimalMath.add(physicalCashPaid, tx.netTotal);
       }
     });
-    
+
     const initialFundo = caixaState?.fundoTroco || '0.00';
     const totalGaveta = DecimalMath.add(initialFundo, physicalCashPaid);
-    
+
     return {
       initialFundo,
       physicalCashPaid,
@@ -1134,12 +1239,12 @@ export default function FluxoCaixaSection({
   const filteredLedger = transactions.filter(tx => {
     const matchesPayment = filterPayment === 'ALL' || tx.paymentMethod === filterPayment;
     const matchesStatus = filterStatus === 'ALL' || tx.status === filterStatus;
-    const matchesSearch = 
+    const matchesSearch =
       tx.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       tx.clientCpfCnpj.includes(searchQuery) ||
       tx.sequenceId.toLowerCase().includes(searchQuery.toLowerCase()) ||
       tx.createdBy.userName.toLowerCase().includes(searchQuery.toLowerCase());
-    
+
     return matchesPayment && matchesStatus && matchesSearch;
   });
 
@@ -1152,10 +1257,10 @@ export default function FluxoCaixaSection({
   const getSubtotalsDistribution = () => {
     const totalCents = DecimalMath.toCents(metrics.totalInflow);
     if (totalCents === 0) return { detran: 50, honorario: 0, other: 50 };
-    
+
     const detranCents = DecimalMath.toCents(metrics.totalDetranFees);
     const detranPercent = Math.round((detranCents / totalCents) * 100);
-    
+
     return {
       detran: detranPercent,
       honorario: 0,
@@ -1206,8 +1311,8 @@ export default function FluxoCaixaSection({
 
   // Find any active/undismissed discrepancy alerts
   const activeAlerts = historicalClosings.filter(
-    (c: any) => 
-      c.status !== 'Conciliado' && 
+    (c: any) =>
+      c.status !== 'Conciliado' &&
       parseFloat(c.divergencia) !== 0 &&
       !dismissedDivergences.includes(`${c.dataOperacional}-${c.horarioFechamento}-${c.usuarioMaster}`)
   );
@@ -1283,32 +1388,29 @@ export default function FluxoCaixaSection({
         <div className="flex border-b border-brand-navy-bright gap-4 pb-px">
           <button
             onClick={() => setSubTab('CONTABIL')}
-            className={`pb-2.5 px-1 text-xs font-bold uppercase tracking-wider relative transition-all cursor-pointer ${
-              subTab === 'CONTABIL' 
-                ? 'text-brand-emerald border-b-2 border-brand-emerald' 
+            className={`pb-2.5 px-1 text-xs font-bold uppercase tracking-wider relative transition-all cursor-pointer ${subTab === 'CONTABIL'
+                ? 'text-brand-emerald border-b-2 border-brand-emerald'
                 : 'text-slate-400 hover:text-slate-200'
-            }`}
+              }`}
           >
             🗃️ Conciliação & Livro Caixa
           </button>
           <button
             onClick={() => setSubTab('BI_MASTER')}
-            className={`pb-2.5 px-1 text-xs font-bold uppercase tracking-wider relative transition-all cursor-pointer flex items-center gap-1.5 ${
-              subTab === 'BI_MASTER' 
-                ? 'text-brand-emerald border-b-2 border-brand-emerald' 
+            className={`pb-2.5 px-1 text-xs font-bold uppercase tracking-wider relative transition-all cursor-pointer flex items-center gap-1.5 ${subTab === 'BI_MASTER'
+                ? 'text-brand-emerald border-b-2 border-brand-emerald'
                 : 'text-slate-400 hover:text-slate-200'
-            }`}
+              }`}
           >
             <TrendingUp className="w-4 h-4 text-brand-emerald animate-pulse" />
             📊 BI Analítico Master (Tempo Real)
           </button>
           <button
             onClick={() => setSubTab('HISTORICO_ATAS')}
-            className={`pb-2.5 px-1 text-xs font-bold uppercase tracking-wider relative transition-all cursor-pointer flex items-center gap-1.5 ${
-              subTab === 'HISTORICO_ATAS' 
-                ? 'text-brand-emerald border-b-2 border-brand-emerald' 
+            className={`pb-2.5 px-1 text-xs font-bold uppercase tracking-wider relative transition-all cursor-pointer flex items-center gap-1.5 ${subTab === 'HISTORICO_ATAS'
+                ? 'text-brand-emerald border-b-2 border-brand-emerald'
                 : 'text-slate-400 hover:text-slate-200'
-            }`}
+              }`}
           >
             <Clock className="w-4 h-4 text-brand-emerald" />
             🧾 Histórico e Atas de Caixa
@@ -1316,11 +1418,179 @@ export default function FluxoCaixaSection({
         </div>
       )}
 
+      {/* ================================================================ */}
+      {/* 📊 RELATÓRIO DE EMOLUMENTOS — SEMPRE VISÍVEL PARA MASTERS        */}
+      {/* Posicionado FORA das condicionais de sub-tab para garantir        */}
+      {/* visibilidade em todas as abas e em mobile                        */}
+      {/* ================================================================ */}
+      {hasCrudAccess && (
+        <div className="bg-brand-navy-card border border-brand-emerald/20 rounded-2xl shadow-xl p-5 animate-fade-in relative overflow-hidden">
+          {/* Barra decorativa superior */}
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-emerald via-emerald-400 to-brand-emerald rounded-t-2xl" />
+
+          {/* Cabeçalho */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5 pt-1">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-xl bg-brand-emerald/10 border border-brand-emerald/20 mt-0.5">
+                <FileSpreadsheet className="w-5 h-5 text-brand-emerald" />
+              </div>
+              <div>
+                <h3 className="font-display font-bold text-sm text-slate-100 uppercase tracking-wider flex items-center gap-2">
+                  📊 Relatório de Emolumentos
+                  <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-brand-emerald/10 border border-brand-emerald/20 text-brand-emerald font-bold normal-case tracking-normal">Competência Mensal</span>
+                </h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">Consolidado analítico de todos os serviços vendidos no período — agrupados por item do Catálogo</p>
+              </div>
+            </div>
+
+            {/* Controles: Filtro de Mês + Botão Fechar */}
+            <div className="flex flex-wrap gap-2 items-center shrink-0">
+              <div className="flex flex-col gap-0.5">
+                <label className="text-[9px] uppercase font-mono text-slate-500 font-semibold tracking-wider pl-1">Competência</label>
+                <select
+                  id="emol-mes-select"
+                  value={emolFilterMonth}
+                  onChange={(e) => setEmolFilterMonth(e.target.value)}
+                  className="bg-brand-navy-deep border border-brand-navy-bright/60 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-sans focus:outline-none focus:border-brand-emerald cursor-pointer"
+                >
+                  {getUltimos12Meses().map(m => (
+                    <option key={m.value} value={m.value}>{m.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {(() => {
+                const now = new Date();
+                const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+                const isCurrentMonth = emolFilterMonth === currentMonth;
+                const jaFechado = historicoEmolumentos.some(h => h.mes_referencia === emolFilterMonth);
+                return isCurrentMonth ? (
+                  <button
+                    id="btn-fechar-competencia"
+                    onClick={handleSalvarCompetenciaMensal}
+                    disabled={isSavingEmolumentos || emolumentosMesAtual.length === 0 || jaFechado}
+                    title={jaFechado ? 'Esta competência já foi fechada' : 'Registrar snapshot do relatório mensal'}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-brand-emerald hover:bg-emerald-400 text-brand-navy-deep font-bold font-sans text-xs rounded-lg transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-brand-emerald/10 mt-auto"
+                  >
+                    <Lock className="w-3.5 h-3.5" />
+                    {isSavingEmolumentos ? 'Salvando...' : jaFechado ? '✓ Competência Fechada' : '🔒 Registrar Fechamento'}
+                  </button>
+                ) : null;
+              })()}
+            </div>
+          </div>
+
+          {/* Tabela Analítica */}
+          <div className="overflow-x-auto rounded-xl border border-brand-navy-bright/60">
+            <table className="w-full text-xs text-left">
+              <thead>
+                <tr className="border-b border-brand-navy-bright bg-brand-navy-deep/60 text-slate-400 uppercase font-sans tracking-wide text-[10px]">
+                  <th className="py-3 px-4 font-bold">Item / Serviço</th>
+                  <th className="py-3 px-4 text-center font-bold">Quantidade Vendida</th>
+                  <th className="py-3 px-4 text-right font-bold">Valor Unitário (R$)</th>
+                  <th className="py-3 px-4 text-right font-bold">Total do Emolumento (R$)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-brand-navy-bright/30 font-mono">
+                {isLoadingEmolMes ? (
+                  <tr>
+                    <td colSpan={4} className="text-center py-8">
+                      <div className="flex items-center justify-center gap-2 text-slate-400">
+                        <span className="inline-block w-4 h-4 border-2 border-brand-emerald border-t-transparent rounded-full animate-spin" />
+                        <span className="text-xs font-sans">Carregando dados do mês...</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (() => {
+                  const now = new Date();
+                  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+                  const isCurrentMonth = emolFilterMonth === currentMonth;
+                  const dataToShow = isCurrentMonth ? emolumentosMesAtual : emolHistoricoMesData;
+
+                  if (dataToShow.length === 0) {
+                    return (
+                      <tr>
+                        <td colSpan={4} className="text-center py-10 text-slate-500 font-sans">
+                          <div className="flex flex-col items-center gap-2">
+                            <FileSpreadsheet className="w-8 h-8 text-slate-700" />
+                            <span>Nenhum emolumento registrado neste período.</span>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  return dataToShow.map((item: any, idx: number) => (
+                    <tr key={idx} className="hover:bg-brand-navy-deep/30 text-slate-300 transition-colors">
+                      <td className="py-2.5 px-4">
+                        <div className="flex items-center gap-2">
+                          <span className={`inline-block w-1.5 h-1.5 rounded-full ${item.type === 'DETRAN' ? 'bg-blue-400' :
+                              item.type === 'HONORARIO' ? 'bg-amber-400' :
+                                item.type === 'CONVÊNIO' ? 'bg-purple-400' : 'bg-brand-emerald'
+                            }`} />
+                          <span className="font-sans font-medium text-slate-100">{item.serviceName || item.name || '—'}</span>
+                        </div>
+                        {item.type && item.type !== 'GERAL' && (
+                          <span className="ml-4 text-[9px] font-mono text-slate-500">{item.type}</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-4 text-center">
+                        <span className="bg-brand-navy-deep border border-brand-navy-bright px-2.5 py-0.5 rounded font-bold text-slate-200">
+                          {item.qty}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-4 text-right text-slate-400">
+                        {DecimalMath.formatBRL((item.valorUnitario || 0).toFixed(2))}
+                      </td>
+                      <td className="py-2.5 px-4 text-right">
+                        <span className="font-bold text-brand-emerald">{DecimalMath.formatBRL((item.total || 0).toFixed(2))}</span>
+                      </td>
+                    </tr>
+                  ));
+                })()}
+              </tbody>
+
+              {/* Rodapé: Total Geral */}
+              {(() => {
+                const now = new Date();
+                const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+                const isCurrentMonth = emolFilterMonth === currentMonth;
+                const dataToShow = isCurrentMonth ? emolumentosMesAtual : emolHistoricoMesData;
+                if (dataToShow.length === 0) return null;
+                const totalGeral = dataToShow.reduce((sum: number, item: any) => sum + (item.total || 0), 0);
+                return (
+                  <tfoot>
+                    <tr className="bg-brand-navy-deep/80 border-t-2 border-brand-emerald/40">
+                      <td colSpan={3} className="py-3 px-4 font-bold text-xs text-slate-300 uppercase tracking-wider font-sans">
+                        🏦 TOTAL GERAL DE EMOLUMENTOS (R$)
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <span className="text-base font-extrabold font-mono text-brand-emerald">
+                          {DecimalMath.formatBRL(totalGeral.toFixed(2))}
+                        </span>
+                      </td>
+                    </tr>
+                    {!isCurrentMonth && historicoEmolumentos.find(h => h.mes_referencia === emolFilterMonth) && (
+                      <tr className="bg-brand-emerald/5">
+                        <td colSpan={4} className="py-2 px-4 text-[10px] font-mono text-slate-500 flex items-center gap-2">
+                          <span className="text-brand-emerald">🔒</span>
+                          Competência fechada por: <strong className="text-slate-300">{historicoEmolumentos.find(h => h.mes_referencia === emolFilterMonth)?.fechado_por || 'Sistema'}</strong>
+                        </td>
+                      </tr>
+                    )}
+                  </tfoot>
+                );
+              })()}
+            </table>
+          </div>
+        </div>
+      )}
+
       {subTab === 'CONTABIL' ? (
         <>
           {/* REESTRUTURAÇÃO COMPLETA SOB ESTÉTICA DARK FINTECH - DE ACORDO COM REQUISITOS DO USUÁRIO */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 my-6">
-            
+
             {/* ========================================================== */}
             {/* Bloco 1: CONTAS CORRENTES DE DESPACHANTES (B2B)            */}
             {/* ========================================================== */}
@@ -1339,7 +1609,7 @@ export default function FluxoCaixaSection({
                     <Users className="w-5 h-5" />
                   </div>
                 </div>
-                
+
                 <p className="text-xs text-slate-400 mb-4 font-sans leading-relaxed">
                   Contas correntes de empresas parceiras credenciadas no B2B com faturamento a prazo. Acompanhe os saldos acumulados e limite de riscos operacionais.
                 </p>
@@ -1363,7 +1633,7 @@ export default function FluxoCaixaSection({
                               [Fechar]
                             </button>
                           </div>
-                          
+
                           <div className="grid grid-cols-2 gap-2 text-xs">
                             <div className="space-y-1">
                               <label className="text-[9px] font-mono text-slate-400 uppercase font-sans">Razão Social</label>
@@ -1456,7 +1726,7 @@ export default function FluxoCaixaSection({
                               {client.status}
                             </span>
                           </div>
-                          
+
                           <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-slate-400 font-mono">
                             <span className="text-slate-500 font-sans">CNPJ:</span> <span className="font-semibold text-slate-300">{client.cpfCnpj}</span>
                             {client.phone && (
@@ -1900,7 +2170,7 @@ export default function FluxoCaixaSection({
                                     addToastLocal('Erro de Segurança', 'Gerentes estão terminantemente bloqueados de interagir com contas Master.');
                                     return;
                                   }
-                                  
+
                                   setConfirmModal({
                                     isOpen: true,
                                     title: 'Revogar Acesso',
@@ -2105,7 +2375,7 @@ export default function FluxoCaixaSection({
                                     createdAt: data.criado_em
                                   };
                                   setOperatorUsers(prev => [mappedUser, ...prev]);
-                                  
+
                                   setCreatedUserModal({
                                     name: mappedUser.name,
                                     email: mappedUser.email,
@@ -2213,1643 +2483,1774 @@ export default function FluxoCaixaSection({
               </div>
             </div>
           )}
-        
 
-      {/* 3. RELATÓRIO DE EMOLUMENTOS MENSAL (FORCE VISIBLE FOR MASTERS) */}
-      {hasCrudAccess && (
-        <div className="bg-brand-navy-card border border-brand-navy-bright rounded-2xl shadow-lg p-5 mb-6 animate-fade-in">
-          <div className="flex justify-between items-center mb-4">
-            <div>
-              <h3 className="font-display font-semibold text-sm text-slate-200 uppercase tracking-wider flex items-center gap-2">
-                <FileText className="w-4.5 h-4.5 text-brand-emerald" />
-                Relatório de Emolumentos
-              </h3>
-              <p className="text-[11px] text-slate-400">Consolidado de serviços do mês selecionado</p>
+
+          {/* 📊 RELATÓRIO DE EMOLUMENTOS MENSAL — SEMPRE VISÍVEL PARA MASTERS */}
+          {hasCrudAccess && (
+            <div className="bg-brand-navy-card border border-brand-emerald/20 rounded-2xl shadow-xl p-5 mb-6 animate-fade-in relative overflow-hidden">
+              {/* Barra decorativa superior */}
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-emerald via-emerald-400 to-brand-emerald rounded-t-2xl" />
+
+              {/* Cabeçalho */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5 pt-1">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-xl bg-brand-emerald/10 border border-brand-emerald/20 mt-0.5">
+                    <FileSpreadsheet className="w-5 h-5 text-brand-emerald" />
+                  </div>
+                  <div>
+                    <h3 className="font-display font-bold text-sm text-slate-100 uppercase tracking-wider flex items-center gap-2">
+                      📊 Relatório de Emolumentos
+                      <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-brand-emerald/10 border border-brand-emerald/20 text-brand-emerald font-bold normal-case tracking-normal">Competência Mensal</span>
+                    </h3>
+                    <p className="text-[11px] text-slate-400 mt-0.5">Consolidado analítico de todos os serviços vendidos no período — agrupados por item do Catálogo</p>
+                  </div>
+                </div>
+
+                {/* Controles: Filtro de Mês + Botão Fechar */}
+                <div className="flex flex-wrap gap-2 items-center shrink-0">
+                  <div className="flex flex-col gap-0.5">
+                    <label className="text-[9px] uppercase font-mono text-slate-500 font-semibold tracking-wider pl-1">Competência</label>
+                    <select
+                      id="emol-mes-select"
+                      value={emolFilterMonth}
+                      onChange={(e) => setEmolFilterMonth(e.target.value)}
+                      className="bg-brand-navy-deep border border-brand-navy-bright/60 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-sans focus:outline-none focus:border-brand-emerald cursor-pointer"
+                    >
+                      {getUltimos12Meses().map(m => (
+                        <option key={m.value} value={m.value}>{m.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {(() => {
+                    const now = new Date();
+                    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+                    const isCurrentMonth = emolFilterMonth === currentMonth;
+                    const jaFechado = historicoEmolumentos.some(h => h.mes_referencia === emolFilterMonth);
+                    return isCurrentMonth ? (
+                      <button
+                        id="btn-fechar-competencia"
+                        onClick={handleSalvarCompetenciaMensal}
+                        disabled={isSavingEmolumentos || emolumentosMesAtual.length === 0 || jaFechado}
+                        title={jaFechado ? 'Esta competência já foi fechada' : 'Registrar snapshot do relatório mensal'}
+                        className="flex items-center gap-1.5 px-3 py-2 bg-brand-emerald hover:bg-emerald-400 text-brand-navy-deep font-bold font-sans text-xs rounded-lg transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-brand-emerald/10 mt-auto"
+                      >
+                        <Lock className="w-3.5 h-3.5" />
+                        {isSavingEmolumentos ? 'Salvando...' : jaFechado ? '✓ Competência Fechada' : '🔒 Registrar Fechamento'}
+                      </button>
+                    ) : null;
+                  })()}
+                </div>
+              </div>
+
+              {/* Tabela Analítica */}
+              <div className="overflow-x-auto rounded-xl border border-brand-navy-bright/60">
+                <table className="w-full text-xs text-left">
+                  <thead>
+                    <tr className="border-b border-brand-navy-bright bg-brand-navy-deep/60 text-slate-400 uppercase font-sans tracking-wide text-[10px]">
+                      <th className="py-3 px-4 font-bold">Item / Serviço</th>
+                      <th className="py-3 px-4 text-center font-bold">Quantidade Vendida</th>
+                      <th className="py-3 px-4 text-right font-bold">Valor Unitário (R$)</th>
+                      <th className="py-3 px-4 text-right font-bold">Total do Emolumento (R$)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-brand-navy-bright/30 font-mono">
+                    {isLoadingEmolMes ? (
+                      <tr>
+                        <td colSpan={4} className="text-center py-8">
+                          <div className="flex items-center justify-center gap-2 text-slate-400">
+                            <span className="inline-block w-4 h-4 border-2 border-brand-emerald border-t-transparent rounded-full animate-spin" />
+                            <span className="text-xs font-sans">Carregando dados do mês...</span>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (() => {
+                      const now = new Date();
+                      const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+                      const isCurrentMonth = emolFilterMonth === currentMonth;
+                      const dataToShow = isCurrentMonth ? emolumentosMesAtual : emolHistoricoMesData;
+
+                      if (dataToShow.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan={4} className="text-center py-10 text-slate-500 font-sans">
+                              <div className="flex flex-col items-center gap-2">
+                                <FileSpreadsheet className="w-8 h-8 text-slate-700" />
+                                <span>Nenhum emolumento registrado neste período.</span>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      return dataToShow.map((item: any, idx: number) => (
+                        <tr key={idx} className="hover:bg-brand-navy-deep/30 text-slate-300 transition-colors">
+                          <td className="py-2.5 px-4">
+                            <div className="flex items-center gap-2">
+                              <span className={`inline-block w-1.5 h-1.5 rounded-full ${item.type === 'DETRAN' ? 'bg-blue-400' :
+                                  item.type === 'HONORARIO' ? 'bg-amber-400' :
+                                    item.type === 'CONVÊNIO' ? 'bg-purple-400' : 'bg-brand-emerald'
+                                }`} />
+                              <span className="font-sans font-medium text-slate-100">{item.serviceName || item.name || '—'}</span>
+                            </div>
+                            {item.type && item.type !== 'GERAL' && (
+                              <span className="ml-4 text-[9px] font-mono text-slate-500">{item.type}</span>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-4 text-center">
+                            <span className="bg-brand-navy-deep border border-brand-navy-bright px-2.5 py-0.5 rounded font-bold text-slate-200">
+                              {item.qty}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-4 text-right text-slate-400">
+                            {DecimalMath.formatBRL((item.valorUnitario || 0).toFixed(2))}
+                          </td>
+                          <td className="py-2.5 px-4 text-right">
+                            <span className="font-bold text-brand-emerald">{DecimalMath.formatBRL((item.total || 0).toFixed(2))}</span>
+                          </td>
+                        </tr>
+                      ));
+                    })()}
+                  </tbody>
+
+                  {/* Rodapé: Total Geral */}
+                  {(() => {
+                    const now = new Date();
+                    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+                    const isCurrentMonth = emolFilterMonth === currentMonth;
+                    const dataToShow = isCurrentMonth ? emolumentosMesAtual : emolHistoricoMesData;
+                    if (dataToShow.length === 0) return null;
+                    const totalGeral = dataToShow.reduce((sum: number, item: any) => sum + (item.total || 0), 0);
+                    return (
+                      <tfoot>
+                        <tr className="bg-brand-navy-deep/80 border-t-2 border-brand-emerald/40">
+                          <td colSpan={3} className="py-3 px-4 font-bold text-xs text-slate-300 uppercase tracking-wider font-sans">
+                            🏦 TOTAL GERAL DE EMOLUMENTOS (R$)
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <span className="text-base font-extrabold font-mono text-brand-emerald">
+                              {DecimalMath.formatBRL(totalGeral.toFixed(2))}
+                            </span>
+                          </td>
+                        </tr>
+                        {!isCurrentMonth && historicoEmolumentos.find(h => h.mes_referencia === emolFilterMonth) && (
+                          <tr className="bg-brand-emerald/5">
+                            <td colSpan={4} className="py-2 px-4 text-[10px] font-mono text-slate-500 flex items-center gap-2">
+                              <span className="text-brand-emerald">🔒</span>
+                              Competência fechada por: <strong className="text-slate-300">{historicoEmolumentos.find(h => h.mes_referencia === emolFilterMonth)?.fechado_por || 'Sistema'}</strong>
+                            </td>
+                          </tr>
+                        )}
+                      </tfoot>
+                    );
+                  })()}
+                </table>
+              </div>
             </div>
-            <div className="flex gap-2 items-center">
-              <select
-                value={selectedMesReferencia}
-                onChange={(e) => setSelectedMesReferencia(e.target.value)}
-                className="bg-brand-navy-deep border border-brand-navy-bright rounded-lg px-3 py-1.5 text-xs text-slate-200 font-sans focus:outline-none focus:border-brand-emerald cursor-pointer"
-              >
-                <option value="ATUAL">Mês Atual (Tempo Real)</option>
-                {historicoEmolumentos.map(h => (
-                  <option key={h.id || h.mes_referencia} value={h.mes_referencia}>{h.mes_referencia} (Fechado)</option>
-                ))}
-              </select>
-              {selectedMesReferencia === 'ATUAL' && (
-                <button
-                  onClick={handleSalvarCompetenciaMensal}
-                  disabled={isSavingEmolumentos || emolumentosMesAtual.length === 0}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-emerald hover:bg-emerald-400 text-brand-navy-deep font-bold font-sans text-xs rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+          )}
+
+          {/* CORE TRANSACTION LEDGER (HISTÓRICO REALTIME) */}
+          <div className="bg-brand-navy-card border border-brand-navy-bright rounded-2xl shadow-lg overflow-hidden">
+
+            {/* Table header commands */}
+            <div className="p-5 border-b border-brand-navy-bright flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <h3 className="font-display font-semibold text-sm text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                  <Activity className="w-4.5 h-4.5 text-brand-emerald" />
+                  Livro Razão de Caixa & Repasses (Realtime Ledger)
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">Listagem unificada de todas as taxas recolhidas e serviços.</p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Search inputs */}
+                <div className="relative w-full sm:w-48">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                  <input
+                    id="ledger-search"
+                    type="text"
+                    placeholder="Pesquisar lançamento..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full bg-brand-navy-deep border border-brand-navy-bright rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-400 focus:outline-none"
+                  />
+                </div>
+
+                {/* Payment Method Filter */}
+                <select
+                  id="filter-payment-select"
+                  value={filterPayment}
+                  onChange={(e) => setFilterPayment(e.target.value)}
+                  className="bg-brand-navy-deep border border-brand-navy-bright rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none"
+                  title="Filtrar por meio de pagamento"
                 >
-                  <Lock className="w-3.5 h-3.5" />
-                  {isSavingEmolumentos ? 'Salvando...' : 'Fechar Competência'}
+                  <option value="ALL">Todo Pagamentos</option>
+                  <option value="PIX">Pix</option>
+                  <option value="CREDIT_CARD">Cartão Crédito</option>
+                  <option value="BOLETO">Boleto</option>
+                  <option value="CASH">Dinheiro</option>
+                </select>
+
+                {/* Status Selector */}
+                <select
+                  id="filter-status-select"
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="bg-brand-navy-deep border border-brand-navy-bright rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none"
+                  title="Filtrar por Status"
+                >
+                  <option value="ALL">Qualquer Status</option>
+                  <option value="PAID">Liquidado (Pago)</option>
+                  <option value="PENDING">Aberto (Pendente)</option>
+                  <option value="CANCELLED">Cancelado / Estornado</option>
+                </select>
+
+                {/* Export data */}
+                <button
+                  onClick={handleExportMock}
+                  className="p-1.5 bg-brand-navy-bright hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700/60 font-medium text-xs flex items-center gap-1.5 transition-all"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-brand-emerald" />
+                  Exportar
                 </button>
+              </div>
+            </div>
+
+            {/* Ledger Table */}
+            <div className="overflow-x-auto">
+              {filteredLedger.length > 0 ? (
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-brand-navy-deep/40 text-slate-400 text-[11px] font-mono uppercase tracking-wider border-b border-brand-navy-bright/80">
+                      <th className="py-3 px-5">ID / Emissão</th>
+                      <th className="py-3 px-5">Cliente Beneficiário</th>
+                      <th className="py-3 px-5">Subtotal de Serviços</th>
+                      <th className="py-3 px-5">ISSQN (2%)</th>
+                      <th className="py-3 px-5">VALOR LÍQUIDO</th>
+                      <th className="py-3 px-5">Canal</th>
+                      <th className="py-3 px-5">Status</th>
+                      <th className="py-3 px-5 text-right">Controles</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-brand-navy-bright/50 text-slate-300 text-xs">
+                    {filteredLedger.map((tx) => {
+                      const isPaid = tx.status === 'PAID';
+                      const isPending = tx.status === 'PENDING';
+                      const isCancelled = tx.status === 'CANCELLED';
+
+                      return (
+                        <tr key={tx.id} className="hover:bg-brand-navy-bright/20 transition-all font-mono">
+
+                          {/* ID / Sequencer */}
+                          <td className="py-3.5 px-5">
+                            <span className="font-bold text-slate-100 block">{tx.sequenceId}</span>
+                            <span className="text-[10px] text-slate-500">{new Date(tx.timestamp).toLocaleString('pt-BR')}</span>
+                          </td>
+
+                          {/* Client */}
+                          <td className="py-3.5 px-5 font-sans">
+                            <span className="font-semibold text-slate-200 block truncate max-w-[200px]">{tx.clientName}</span>
+                            <span className="text-[10px] text-slate-500 font-mono block mt-0.5">{tx.clientCpfCnpj}</span>
+                          </td>
+
+                          {/* Subtotal de Serviços */}
+                          <td className="py-3.5 px-5 text-brand-emerald">
+                            {DecimalMath.formatBRL(DecimalMath.add(tx.detranSubtotal, tx.otherSubtotal))}
+                          </td>
+
+                          {/* ISSQN (2%) */}
+                          <td className="py-3.5 px-5 text-slate-450">
+                            {tx.issqn && parseFloat(tx.issqn) > 0 ? DecimalMath.formatBRL(tx.issqn) : 'R$ 0,00'}
+                          </td>
+
+                          {/* Net Total */}
+                          <td className="py-3.5 px-5 text-slate-100 font-bold text-sm">
+                            {DecimalMath.formatBRL(tx.netTotal)}
+                          </td>
+
+                          {/* Payment Mode */}
+                          <td className="py-3.5 px-5">
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-brand-navy-deep border border-slate-700/50">
+                              {tx.paymentMethod}
+                            </span>
+                          </td>
+
+                          {/* Status */}
+                          <td className="py-3.5 px-5">
+                            {isPaid && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-brand-emerald bg-brand-emerald/10 border border-brand-emerald/20 px-2 py-0.5 rounded-full">
+                                <span className="w-1.5 h-1.5 rounded-full bg-brand-emerald" />
+                                PAGO
+                              </span>
+                            )}
+                            {isPending && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-500 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                PENDENTE
+                              </span>
+                            )}
+                            {isCancelled && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-brand-crimson bg-brand-crimson/10 border border-brand-crimson/20 px-2 py-0.5 rounded-full">
+                                <span className="w-1.5 h-1.5 rounded-full bg-brand-crimson" />
+                                REFUNDED
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Quick Commands */}
+                          <td className="py-3.5 px-5 text-right space-x-1.5">
+                            <button
+                              onClick={() => setViewTxDetail(tx)}
+                              className="p-1 text-slate-400 hover:text-brand-emerald hover:bg-brand-navy-deep rounded transition"
+                              title="Detalhar Lançamento"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+
+                            <button
+                              disabled={isCancelled}
+                              onClick={() => {
+                                if (window.confirm(`Deseja realmente estornar a transação ${tx.sequenceId}? Esta ação alterará os repasses.`)) {
+                                  onUnloadTransaction(tx.id);
+                                }
+                              }}
+                              className={`p-1 rounded transition ${isCancelled
+                                  ? 'text-slate-600 cursor-not-allowed'
+                                  : 'text-slate-400 hover:text-brand-crimson hover:bg-brand-navy-deep'
+                                }`}
+                              title={isCancelled ? 'Transação já cancelada.' : 'Estornar / Cancelar'}
+                            >
+                              <RotateCcw className="w-4 h-4" />
+                            </button>
+                          </td>
+
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="p-16 text-center text-slate-500 text-xs">
+                  Nenhuma transação correspondente aos filtros foi encontrada no Banco Postgres.
+                </div>
+              )}
+            </div>
+
+          </div>
+
+          {/* DETAIL MODAL DRILL DOWN */}
+          {viewTxDetail && (
+            <div className="fixed inset-0 bg-brand-navy-deep/80 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+              <div className="bg-brand-navy-card border border-brand-navy-bright rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl relative">
+
+                <div className="bg-brand-navy-bright/60 p-4 border-b border-brand-navy-bright flex justify-between items-center">
+                  <div>
+                    <h4 className="font-display font-semibold text-sm text-slate-100">
+                      Visualizador de Documentos (DQL Explode)
+                    </h4>
+                    <p className="text-[10px] font-mono text-slate-400 mt-1">Tenant ID: {viewTxDetail.id}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleReimprimirCupom(viewTxDetail)}
+                      className="text-xs bg-brand-emerald hover:bg-emerald-400 text-brand-navy-deep font-bold px-3 py-1.5 rounded flex items-center gap-1.5 transition cursor-pointer shadow-lg shadow-brand-emerald/10 hover:shadow-brand-emerald/20"
+                    >
+                      <Printer className="w-3.5 h-3.5" />
+                      Reimprimir Cupom
+                    </button>
+                    <button
+                      onClick={() => setViewTxDetail(null)}
+                      className="text-xs bg-brand-navy-deep px-2.5 py-1.5 text-slate-400 hover:text-slate-200 border border-brand-navy-bright/80 rounded cursor-pointer"
+                    >
+                      Fechar
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-5 space-y-4">
+
+                  {/* Profile Block */}
+                  <div className="bg-brand-navy-deep border border-brand-navy-bright/80 p-3.5 rounded-xl text-xs space-y-1">
+                    <p className="text-[10px] uppercase font-mono text-slate-400">Dados do Cliente B2B</p>
+                    <p className="text-sm font-semibold text-slate-200">{viewTxDetail.clientName}</p>
+                    <p className="text-slate-400 font-mono">Documentação Fiscal: {viewTxDetail.clientCpfCnpj}</p>
+                    <p className="text-slate-400">Canal Executivo de Origem: {viewTxDetail.clientCategory}</p>
+                  </div>
+
+                  {/* Items Breakdown */}
+                  <div className="space-y-2">
+                    <span className="text-[10px] uppercase font-mono font-semibold text-slate-400 block pb-1 border-b border-brand-navy-bright/45">
+                      Demonstrativo e Quotas do Guia
+                    </span>
+
+                    <div className="max-h-36 overflow-y-auto space-y-2.5 pr-1 font-mono text-xs">
+                      {viewTxDetail.items.map((item, idx) => (
+                        <div key={idx} className="flex justify-between items-start text-[11px] bg-brand-navy-deep/60 p-2 rounded">
+                          <div>
+                            <p className="text-slate-200 font-semibold">{item.quantity}x {item.serviceName}</p>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="text-[9px] uppercase font-mono font-bold bg-slate-800 text-slate-400 px-1 rounded-sm">
+                                {item.type === 'DETRAN' ? 'OPERACIONAL' : item.type}
+                              </span>
+                              {item.observation && (
+                                <span className="text-[9px] italic text-slate-400">
+                                  (Obs: {item.observation})
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <span className="font-bold text-slate-100">{DecimalMath.formatBRL(item.subtotal)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Security parameters */}
+                  <div className="p-3 bg-slate-900 border border-brand-navy-bright rounded-xl text-[11px] font-mono space-y-1">
+                    <p className="font-semibold text-brand-emerald">🔐 PARÂMETROS RLS COMPROVADOS:</p>
+                    <p className="text-slate-400">Atribuído ao Usuário: {viewTxDetail.createdBy.userName} ({viewTxDetail.createdBy.userRole})</p>
+                    <p className="text-slate-400">Autorização Auditoria: CONECTADO [POSTGRES_DQL_SESSION]</p>
+                    <p className="text-amber-500 font-bold truncate">Limitação SQL: {viewTxDetail.createdBy.rlsScope}</p>
+                  </div>
+
+                  {/* Cash Totals Summary */}
+                  <div className="pt-3 border-t border-brand-navy-bright flex justify-between items-end">
+                    <div>
+                      <span className="text-[10px] uppercase font-mono font-bold text-slate-400">Pagamento:</span>
+                      <span className="text-xs text-slate-200 block font-bold">{viewTxDetail.paymentMethod} {viewTxDetail.installments > 1 ? `(${viewTxDetail.installments}x)` : ''}</span>
+                    </div>
+                    <div className="text-right flex flex-col items-end gap-1">
+                      {viewTxDetail.issqn && parseFloat(viewTxDetail.issqn) > 0 && (
+                        <span className="text-[10px] text-slate-450 font-mono">
+                          ISSQN (2%): {DecimalMath.formatBRL(viewTxDetail.issqn)}
+                        </span>
+                      )}
+                      <span className="text-[10px] uppercase font-mono font-bold text-slate-400">VALOR TOTAL LÍQUIDO:</span>
+                      <span className="text-lg font-mono font-bold text-brand-emerald block">
+                        {DecimalMath.formatBRL(viewTxDetail.netTotal)}
+                      </span>
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
+            </div>
+          )}
+
+        </>
+      ) : subTab === 'BI_MASTER' ? (
+        /* ==================== CAMADA DE BI MASTER REALTIME (RF005) ==================== */
+        <div className="space-y-6 animate-fade-in font-sans transition-all text-slate-100">
+
+          {/* 0. KPI CARD EMOLUMENTOS DO MÊS — DESTAQUE NO TOPO DO COCKPIT BI */}
+          {hasCrudAccess && (() => {
+            const totalEmolMes = emolumentosMesAtual.reduce((sum: number, item: any) => sum + (item.total || 0), 0);
+            const qtdServMes = emolumentosMesAtual.reduce((sum: number, item: any) => sum + (item.qty || 0), 0);
+            const now = new Date();
+            const mesLabel = now.toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+            return (
+              <div className="bg-gradient-to-br from-emerald-950/60 to-brand-navy-card border border-brand-emerald/30 rounded-2xl p-4 shadow-xl relative overflow-hidden">
+                {/* Brilho decorativo */}
+                <div className="absolute -top-6 -right-6 w-28 h-28 bg-brand-emerald/8 rounded-full blur-2xl" />
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-xl bg-brand-emerald/15 border border-brand-emerald/25 shadow-inner">
+                      <FileSpreadsheet className="w-6 h-6 text-brand-emerald" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-mono uppercase text-brand-emerald font-bold tracking-widest">Emolumentos do Mês</p>
+                      <h4 className="text-2xl font-mono font-extrabold text-brand-emerald tracking-tight mt-0.5">
+                        {DecimalMath.formatBRL(totalEmolMes.toFixed(2))}
+                      </h4>
+                      <p className="text-[10px] text-slate-400 mt-0.5 font-sans capitalize">{mesLabel} · {qtdServMes} serviços emitidos</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col sm:items-end gap-1.5">
+                    <span className="text-[9px] font-mono uppercase text-slate-500 font-semibold tracking-wider">Composição por tipo</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {['DETRAN', 'HONORARIO', 'CONVÊNIO'].map(tipo => {
+                        const totalTipo = emolumentosMesAtual
+                          .filter((i: any) => i.type === tipo)
+                          .reduce((s: number, i: any) => s + (i.total || 0), 0);
+                        if (totalTipo === 0) return null;
+                        return (
+                          <span key={tipo} className="text-[9px] font-mono px-2 py-0.5 rounded bg-brand-navy-deep border border-brand-navy-bright text-slate-300">
+                            {tipo}: <strong className="text-brand-emerald">{DecimalMath.formatBRL(totalTipo.toFixed(2))}</strong>
+                          </span>
+                        );
+                      })}
+                    </div>
+                    <button
+                      onClick={() => setSubTab('CONTABIL')}
+                      className="text-[9px] font-mono uppercase text-brand-emerald hover:underline tracking-wider cursor-pointer mt-0.5"
+                    >
+                      Ver Relatório Completo →
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* 1. SELETOR DE PERÍODO TEMPORAL AVANÇADO (FILTROS RAPIDOS + CUSTOM RANGE) */}
+          <div className="bg-brand-navy-card border border-brand-navy-bright/60 p-4 rounded-xl flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 shadow-lg">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4.5 h-4.5 text-brand-emerald" />
+                <span className="font-display font-bold text-sm text-slate-200">Filtros Temporais Avançados</span>
+              </div>
+              <p className="text-[11px] text-slate-400">Selecione o range temporal das transações para atualizar o Cockpit BI.</p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setActiveDateFilter('HOJE')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider font-mono transition-all border cursor-pointer ${activeDateFilter === 'HOJE'
+                    ? 'bg-brand-emerald/15 text-brand-emerald border-brand-emerald/40 shadow-sm'
+                    : 'bg-brand-navy-deep text-slate-400 border-brand-navy-bright/40 hover:text-slate-200 hover:bg-brand-navy-bright/10'
+                  }`}
+              >
+                Hoje
+              </button>
+              <button
+                onClick={() => setActiveDateFilter('ONTEM')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider font-mono transition-all border cursor-pointer ${activeDateFilter === 'ONTEM'
+                    ? 'bg-brand-emerald/15 text-brand-emerald border-brand-emerald/40 shadow-sm'
+                    : 'bg-brand-navy-deep text-slate-400 border-brand-navy-bright/40 hover:text-slate-200 hover:bg-brand-navy-bright/10'
+                  }`}
+              >
+                Ontem
+              </button>
+              <button
+                onClick={() => setActiveDateFilter('7DIAS')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider font-mono transition-all border cursor-pointer ${activeDateFilter === '7DIAS'
+                    ? 'bg-brand-emerald/15 text-brand-emerald border-brand-emerald/40 shadow-sm'
+                    : 'bg-brand-navy-deep text-slate-400 border-brand-navy-bright/40 hover:text-slate-200 hover:bg-brand-navy-bright/10'
+                  }`}
+              >
+                Últimos 7 Dias
+              </button>
+              <button
+                onClick={() => setActiveDateFilter('MES')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider font-mono transition-all border cursor-pointer ${activeDateFilter === 'MES'
+                    ? 'bg-brand-emerald/15 text-brand-emerald border-brand-emerald/40 shadow-sm'
+                    : 'bg-brand-navy-deep text-slate-400 border-brand-navy-bright/40 hover:text-slate-200 hover:bg-brand-navy-bright/10'
+                  }`}
+              >
+                Mês Atual
+              </button>
+              <button
+                onClick={() => setActiveDateFilter('CUSTOM')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider font-mono transition-all border cursor-pointer ${activeDateFilter === 'CUSTOM'
+                    ? 'bg-brand-emerald/15 text-brand-emerald border-brand-emerald/40 shadow-sm'
+                    : 'bg-brand-navy-deep text-slate-400 border-brand-navy-bright/40 hover:text-slate-200 hover:bg-brand-navy-bright/10'
+                  }`}
+              >
+                Personalizado
+              </button>
+
+              {activeDateFilter === 'CUSTOM' && (
+                <div className="flex items-center gap-2 animate-fade-in pl-2 border-l border-brand-navy-bright/40">
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    className="bg-brand-navy-deep text-slate-200 border border-brand-navy-bright/50 px-2 py-1 rounded text-xs focus:outline-none focus:border-brand-emerald font-mono"
+                  />
+                  <span className="text-slate-500 font-mono text-xs">até</span>
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    className="bg-brand-navy-deep text-slate-200 border border-brand-navy-bright/50 px-2 py-1 rounded text-xs focus:outline-none focus:border-brand-emerald font-mono"
+                  />
+                </div>
               )}
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left">
-              <thead>
-                <tr className="border-b border-brand-navy-bright text-slate-400 uppercase font-sans tracking-wide text-[10px] bg-brand-navy-deep/40">
-                  <th className="py-2.5 px-4 font-bold">Serviço / Identificação</th>
-                  <th className="py-2.5 px-4 text-center font-bold">Qtd no Mês</th>
-                  <th className="py-2.5 px-4 text-right font-bold">Faturamento (Emolumentos)</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-brand-navy-bright/40 font-mono">
-                {(selectedMesReferencia === 'ATUAL' 
-                  ? emolumentosMesAtual 
-                  : (historicoEmolumentos.find(h => h.mes_referencia === selectedMesReferencia)?.dados_consolidados || [])
-                ).map((item: any, idx: number) => (
-                  <tr key={idx} className="hover:bg-brand-navy-deep/20 text-slate-300">
-                    <td className="py-2 px-4 font-sans font-medium text-slate-200">{item.name}</td>
-                    <td className="py-2 px-4 text-center text-slate-400">{item.qty} un</td>
-                    <td className="py-2 px-4 text-right font-bold text-brand-emerald">{DecimalMath.formatBRL(item.total || item.total_emolumentos)}</td>
-                  </tr>
-                ))}
-                {(selectedMesReferencia === 'ATUAL' ? emolumentosMesAtual : (historicoEmolumentos.find(h => h.mes_referencia === selectedMesReferencia)?.dados_consolidados || [])).length === 0 && (
-                  <tr>
-                    <td colSpan={3} className="text-center py-6 text-slate-500 font-sans">Nenhum emolumento registrado neste período.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-          {selectedMesReferencia !== 'ATUAL' && (
-            <div className="mt-3 flex justify-between items-center text-[10px] font-mono text-slate-500">
-              <span>Total de Emolumentos: <strong className="text-brand-emerald">{DecimalMath.formatBRL(historicoEmolumentos.find(h => h.mes_referencia === selectedMesReferencia)?.total_emolumentos || 0)}</strong></span>
-              <span>Fechado por: {historicoEmolumentos.find(h => h.mes_referencia === selectedMesReferencia)?.fechado_por || 'Sistema'}</span>
+          {/* 2. SENSOR LÓGICO: ALERTA DE QUEBRA DE CAIXA (DIVERGÊNCIAS DETECTADAS NAS CONFERÊNCIAS CEGAS) */}
+          {activeAlerts.map((closing: any, idx: number) => {
+            const uniqueKey = `${closing.dataOperacional}-${closing.horarioFechamento}-${closing.usuarioMaster}`;
+            const valNum = parseFloat(closing.divergencia);
+            const isQuebra = valNum < 0;
+            const statusType = isQuebra ? 'Quebra de Caixa' : 'Sobra de Caixa';
+
+            return (
+              <div
+                key={uniqueKey}
+                className="p-4 bg-red-950/40 border border-red-500/30 rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs gap-3 animate-pulse shadow-md"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-red-500/15 text-red-400">
+                    <AlertTriangle className="w-5 h-5 animate-bounce" />
+                  </div>
+                  <div className="space-y-1">
+                    <h5 className="font-display font-extrabold text-red-400 uppercase tracking-wide text-[11px]">
+                      Alerta Crítico de Conformidade Fiscal · {statusType}
+                    </h5>
+                    <p className="text-slate-350 font-sans leading-relaxed">
+                      Atenção: Divergência de <strong className="font-mono text-red-400">{DecimalMath.formatBRL(closing.divergencia)}</strong> detectada no <strong className="text-slate-100">Caixa 01</strong> · Operador: <strong className="font-mono text-brand-emerald">{closing.usuarioMaster}</strong> · Fechamento às {closing.horarioFechamento} de {closing.dataOperacional}.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setDismissedDivergences(prev => [...prev, uniqueKey]);
+                  }}
+                  className="bg-red-500/25 hover:bg-red-500/40 text-red-300 border border-red-500/35 hover:border-red-500/50 font-mono text-[9px] uppercase font-semibold px-2.5 py-1.5 rounded-lg transition-all cursor-pointer shadow-inner self-start sm:self-center"
+                >
+                  Auditar & Resolver Alerta
+                </button>
+              </div>
+            );
+          })}
+
+          {/* Ambient Realtime Status Ribbon if no critical undismissed alerts */}
+          {activeAlerts.length === 0 && (
+            <div className="p-4 bg-brand-emerald/5 border border-brand-emerald/10 rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs gap-3 shadow-inner">
+              <div className="flex items-center gap-2.5">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-emerald opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-emerald"></span>
+                </span>
+                <p className="text-slate-300 leading-tight">
+                  <strong>SISTEMA CONCILIADO E LIVRE DE ALERTAS</strong> · Todas as conferências cegas e auditorias de encerramento de turno bateram com precisão centesimal de R$ 0,00.
+                </p>
+              </div>
+              <span className="bg-brand-navy-deep px-2.5 py-1 border border-brand-navy-bright/45 rounded text-[9px] font-mono uppercase text-brand-emerald font-bold">
+                Audit Level Active
+              </span>
             </div>
           )}
-        </div>
-      )}
 
-      {/* CORE TRANSACTION LEDGER (HISTÓRICO REALTIME) */}
-      <div className="bg-brand-navy-card border border-brand-navy-bright rounded-2xl shadow-lg overflow-hidden">
-        
-        {/* Table header commands */}
-        <div className="p-5 border-b border-brand-navy-bright flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h3 className="font-display font-semibold text-sm text-slate-200 uppercase tracking-wider flex items-center gap-2">
-              <Activity className="w-4.5 h-4.5 text-brand-emerald" />
-              Livro Razão de Caixa & Repasses (Realtime Ledger)
-            </h3>
-            <p className="text-xs text-slate-400 mt-0.5">Listagem unificada de todas as taxas recolhidas e serviços.</p>
-          </div>
+          {/* 3. CARDS DE KPI DE ALTA PRECISÃO NO TOPO DO PAINEL - CENTRALIZAÇÃO E NOVA DISTRIBUIÇÃO DOS 7 KPIS */}
+          <div className="space-y-5">
 
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Search inputs */}
-            <div className="relative w-full sm:w-48">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-              <input
-                id="ledger-search"
-                type="text"
-                placeholder="Pesquisar lançamento..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-brand-navy-deep border border-brand-navy-bright rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-400 focus:outline-none"
-              />
-            </div>
+            {/* LINHA 1 (INDICADORES DE LIQUIDEZ E COMPLEMENTARIEDADE - ENFATIZADOS) */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
 
-            {/* Payment Method Filter */}
-            <select
-              id="filter-payment-select"
-              value={filterPayment}
-              onChange={(e) => setFilterPayment(e.target.value)}
-              className="bg-brand-navy-deep border border-brand-navy-bright rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none"
-              title="Filtrar por meio de pagamento"
-            >
-              <option value="ALL">Todo Pagamentos</option>
-              <option value="PIX">Pix</option>
-              <option value="CREDIT_CARD">Cartão Crédito</option>
-              <option value="BOLETO">Boleto</option>
-              <option value="CASH">Dinheiro</option>
-            </select>
+              {/* Card 1: FATURAMENTO BRUTO DO DIA */}
+              <div className="md:col-span-2 col-span-1 bg-brand-navy-card border border-brand-navy-bright p-5 rounded-2xl shadow-lg relative overflow-hidden group transition-all duration-200 hover:border-brand-emerald/40">
+                <div className="flex justify-between items-start">
+                  <div className="space-y-0.5">
+                    <span className="text-[10px] font-sans font-medium uppercase text-slate-400 tracking-wider">
+                      Faturamento Bruto do Dia
+                    </span>
+                    <p className="text-[9px] text-slate-500 font-sans leading-none">Total absoluto de todas as entradas do dia corrente</p>
+                  </div>
+                  <div className="p-1.5 rounded bg-brand-emerald/10 text-brand-emerald">
+                    <TrendingUp className="w-4 h-4" />
+                  </div>
+                </div>
+                <h3 className="text-xl font-mono font-bold text-brand-emerald tracking-tight mt-3">
+                  {DecimalMath.formatBRL(biKpis.faturamentoDia)}
+                </h3>
+                <div className="flex items-center gap-1 text-[8px] font-mono text-slate-400 mt-2 border-t border-brand-navy-bright/30 pt-1.5 justify-between">
+                  <span className="text-brand-emerald font-bold">● REALTIME CONSOLIDADO</span>
+                  <span>Exclui faturamento a prazo (boleto)</span>
+                </div>
+              </div>
 
-            {/* Status Selector */}
-            <select
-              id="filter-status-select"
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="bg-brand-navy-deep border border-brand-navy-bright rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none"
-              title="Filtrar por Status"
-            >
-              <option value="ALL">Qualquer Status</option>
-              <option value="PAID">Liquidado (Pago)</option>
-              <option value="PENDING">Aberto (Pendente)</option>
-              <option value="CANCELLED">Cancelado / Estornado</option>
-            </select>
+              {/* Card 2: TOTAL EM DINHEIRO */}
+              <div className="bg-brand-navy-card border border-brand-navy-bright p-5 rounded-2xl shadow-lg relative overflow-hidden group transition-all duration-200 hover:border-amber-500/40">
+                <div className="flex justify-between items-start">
+                  <div className="space-y-0.5">
+                    <span className="text-[10px] font-sans font-medium uppercase text-slate-400 tracking-wider">
+                      Total em Dinheiro
+                    </span>
+                    <p className="text-[9px] text-slate-500 font-sans leading-none">Espécie contida fisicamente nas gavetas</p>
+                  </div>
+                  <div className="p-1.5 rounded bg-amber-500/10 text-amber-500">
+                    <Coins className="w-4 h-4" />
+                  </div>
+                </div>
+                <h3 className="text-lg font-mono font-bold text-amber-500 tracking-tight mt-3">
+                  {DecimalMath.formatBRL(biKpis.dinheiro)}
+                </h3>
+                <div className="flex justify-between text-[8px] font-mono text-slate-400 mt-2 border-t border-brand-navy-bright/30 pt-1.5">
+                  <span>Gaveta Física</span>
+                  <span className="text-amber-500 bg-amber-500/10 px-1 rounded font-bold text-[8px]">REAL</span>
+                </div>
+              </div>
 
-            {/* Export data */}
-            <button
-              onClick={handleExportMock}
-              className="p-1.5 bg-brand-navy-bright hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700/60 font-medium text-xs flex items-center gap-1.5 transition-all"
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-brand-emerald" />
-              Exportar
-            </button>
-          </div>
-        </div>
-
-        {/* Ledger Table */}
-        <div className="overflow-x-auto">
-          {filteredLedger.length > 0 ? (
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-brand-navy-deep/40 text-slate-400 text-[11px] font-mono uppercase tracking-wider border-b border-brand-navy-bright/80">
-                  <th className="py-3 px-5">ID / Emissão</th>
-                  <th className="py-3 px-5">Cliente Beneficiário</th>
-                  <th className="py-3 px-5">Subtotal de Serviços</th>
-                  <th className="py-3 px-5">ISSQN (2%)</th>
-                  <th className="py-3 px-5">VALOR LÍQUIDO</th>
-                  <th className="py-3 px-5">Canal</th>
-                  <th className="py-3 px-5">Status</th>
-                  <th className="py-3 px-5 text-right">Controles</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-brand-navy-bright/50 text-slate-300 text-xs">
-                {filteredLedger.map((tx) => {
-                  const isPaid = tx.status === 'PAID';
-                  const isPending = tx.status === 'PENDING';
-                  const isCancelled = tx.status === 'CANCELLED';
+              {/* Card 3: STATUS DE CONCILIAÇÃO */}
+              <div className="bg-brand-navy-card border border-brand-navy-bright p-5 rounded-2xl shadow-lg relative overflow-hidden group transition-all duration-200 hover:border-teal-500/40">
+                <div className="flex justify-between items-start">
+                  <div className="space-y-0.5">
+                    <span className="text-[10px] font-sans font-medium uppercase text-slate-400 tracking-wider">
+                      Status de Conciliação
+                    </span>
+                    <p className="text-[9px] text-slate-500 font-sans leading-none">Diferença Proj vs Real</p>
+                  </div>
+                  <div className="p-1.5 rounded bg-teal-500/10 text-teal-400">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+                {(() => {
+                  const totalDivergencia = historicalClosings.reduce((sum, c) => DecimalMath.add(sum, c.divergencia || '0.00'), '0.00');
+                  const hasError = DecimalMath.toCents(totalDivergencia) !== 0;
 
                   return (
-                    <tr key={tx.id} className="hover:bg-brand-navy-bright/20 transition-all font-mono">
-                      
-                      {/* ID / Sequencer */}
-                      <td className="py-3.5 px-5">
-                        <span className="font-bold text-slate-100 block">{tx.sequenceId}</span>
-                        <span className="text-[10px] text-slate-500">{new Date(tx.timestamp).toLocaleString('pt-BR')}</span>
-                      </td>
-
-                      {/* Client */}
-                      <td className="py-3.5 px-5 font-sans">
-                        <span className="font-semibold text-slate-200 block truncate max-w-[200px]">{tx.clientName}</span>
-                        <span className="text-[10px] text-slate-500 font-mono block mt-0.5">{tx.clientCpfCnpj}</span>
-                      </td>
-
-                      {/* Subtotal de Serviços */}
-                      <td className="py-3.5 px-5 text-brand-emerald">
-                        {DecimalMath.formatBRL(DecimalMath.add(tx.detranSubtotal, tx.otherSubtotal))}
-                      </td>
-
-                      {/* ISSQN (2%) */}
-                      <td className="py-3.5 px-5 text-slate-450">
-                        {tx.issqn && parseFloat(tx.issqn) > 0 ? DecimalMath.formatBRL(tx.issqn) : 'R$ 0,00'}
-                      </td>
-
-                      {/* Net Total */}
-                      <td className="py-3.5 px-5 text-slate-100 font-bold text-sm">
-                        {DecimalMath.formatBRL(tx.netTotal)}
-                      </td>
-
-                      {/* Payment Mode */}
-                      <td className="py-3.5 px-5">
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-brand-navy-deep border border-slate-700/50">
-                          {tx.paymentMethod}
-                        </span>
-                      </td>
-
-                      {/* Status */}
-                      <td className="py-3.5 px-5">
-                        {isPaid && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-brand-emerald bg-brand-emerald/10 border border-brand-emerald/20 px-2 py-0.5 rounded-full">
-                            <span className="w-1.5 h-1.5 rounded-full bg-brand-emerald" />
-                            PAGO
+                    <div className="mt-3">
+                      {hasError ? (
+                        <h3 className="text-lg font-mono font-bold text-red-500 animate-pulse tracking-tight">
+                          {DecimalMath.formatBRL(totalDivergencia)}
+                        </h3>
+                      ) : (
+                        <h3 className="text-lg font-mono font-bold text-brand-emerald tracking-tight">
+                          R$ 0,00 - Caixa Conciliado
+                        </h3>
+                      )}
+                      <div className="mt-2 border-t border-brand-navy-bright/30 pt-1.5 flex items-center justify-between">
+                        {hasError ? (
+                          <span className="bg-red-500/15 text-red-400 font-sans text-[8px] px-1 rounded font-extrabold tracking-tight uppercase animate-pulse leading-none py-0.5">
+                            Divergência Detectada
+                          </span>
+                        ) : (
+                          <span className="bg-teal-500/15 text-teal-450 font-sans text-[8px] px-1 rounded font-extrabold tracking-tight uppercase leading-none py-0.5">
+                            Caixa Conciliado
                           </span>
                         )}
-                        {isPending && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-500 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                            PENDENTE
-                          </span>
-                        )}
-                        {isCancelled && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-brand-crimson bg-brand-crimson/10 border border-brand-crimson/20 px-2 py-0.5 rounded-full">
-                            <span className="w-1.5 h-1.5 rounded-full bg-brand-crimson" />
-                            REFUNDED
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Quick Commands */}
-                      <td className="py-3.5 px-5 text-right space-x-1.5">
-                        <button
-                          onClick={() => setViewTxDetail(tx)}
-                          className="p-1 text-slate-400 hover:text-brand-emerald hover:bg-brand-navy-deep rounded transition"
-                          title="Detalhar Lançamento"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-
-                        <button
-                          disabled={isCancelled}
-                          onClick={() => {
-                            if (window.confirm(`Deseja realmente estornar a transação ${tx.sequenceId}? Esta ação alterará os repasses.`)) {
-                              onUnloadTransaction(tx.id);
-                            }
-                          }}
-                          className={`p-1 rounded transition ${
-                            isCancelled 
-                              ? 'text-slate-600 cursor-not-allowed' 
-                              : 'text-slate-400 hover:text-brand-crimson hover:bg-brand-navy-deep'
-                          }`}
-                          title={isCancelled ? 'Transação já cancelada.' : 'Estornar / Cancelar'}
-                        >
-                          <RotateCcw className="w-4 h-4" />
-                        </button>
-                      </td>
-
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          ) : (
-            <div className="p-16 text-center text-slate-500 text-xs">
-              Nenhuma transação correspondente aos filtros foi encontrada no Banco Postgres.
-            </div>
-          )}
-        </div>
-
-      </div>
-
-      {/* DETAIL MODAL DRILL DOWN */}
-      {viewTxDetail && (
-        <div className="fixed inset-0 bg-brand-navy-deep/80 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-brand-navy-card border border-brand-navy-bright rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl relative">
-            
-            <div className="bg-brand-navy-bright/60 p-4 border-b border-brand-navy-bright flex justify-between items-center">
-              <div>
-                <h4 className="font-display font-semibold text-sm text-slate-100">
-                  Visualizador de Documentos (DQL Explode)
-                </h4>
-                <p className="text-[10px] font-mono text-slate-400 mt-1">Tenant ID: {viewTxDetail.id}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleReimprimirCupom(viewTxDetail)}
-                  className="text-xs bg-brand-emerald hover:bg-emerald-400 text-brand-navy-deep font-bold px-3 py-1.5 rounded flex items-center gap-1.5 transition cursor-pointer shadow-lg shadow-brand-emerald/10 hover:shadow-brand-emerald/20"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  Reimprimir Cupom
-                </button>
-                <button
-                  onClick={() => setViewTxDetail(null)}
-                  className="text-xs bg-brand-navy-deep px-2.5 py-1.5 text-slate-400 hover:text-slate-200 border border-brand-navy-bright/80 rounded cursor-pointer"
-                >
-                  Fechar
-                </button>
-              </div>
-            </div>
-
-            <div className="p-5 space-y-4">
-              
-              {/* Profile Block */}
-              <div className="bg-brand-navy-deep border border-brand-navy-bright/80 p-3.5 rounded-xl text-xs space-y-1">
-                <p className="text-[10px] uppercase font-mono text-slate-400">Dados do Cliente B2B</p>
-                <p className="text-sm font-semibold text-slate-200">{viewTxDetail.clientName}</p>
-                <p className="text-slate-400 font-mono">Documentação Fiscal: {viewTxDetail.clientCpfCnpj}</p>
-                <p className="text-slate-400">Canal Executivo de Origem: {viewTxDetail.clientCategory}</p>
-              </div>
-
-              {/* Items Breakdown */}
-              <div className="space-y-2">
-                <span className="text-[10px] uppercase font-mono font-semibold text-slate-400 block pb-1 border-b border-brand-navy-bright/45">
-                  Demonstrativo e Quotas do Guia
-                </span>
-                
-                <div className="max-h-36 overflow-y-auto space-y-2.5 pr-1 font-mono text-xs">
-                  {viewTxDetail.items.map((item, idx) => (
-                    <div key={idx} className="flex justify-between items-start text-[11px] bg-brand-navy-deep/60 p-2 rounded">
-                      <div>
-                        <p className="text-slate-200 font-semibold">{item.quantity}x {item.serviceName}</p>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="text-[9px] uppercase font-mono font-bold bg-slate-800 text-slate-400 px-1 rounded-sm">
-                            {item.type === 'DETRAN' ? 'OPERACIONAL' : item.type}
-                          </span>
-                          {item.observation && (
-                            <span className="text-[9px] italic text-slate-400">
-                              (Obs: {item.observation})
-                            </span>
-                          )}
-                        </div>
                       </div>
-                      <span className="font-bold text-slate-100">{DecimalMath.formatBRL(item.subtotal)}</span>
+                    </div>
+                  );
+                })()}
+              </div>
+
+            </div>
+
+            {/* LINHA 2 (MEIOS DE PAGAMENTO E FLUXO OPERACIONAL - 4 COLUNAS IGUAIS) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+
+              {/* Card 4: TOTAL EM PIX */}
+              <div className="bg-brand-navy-card border border-brand-navy-bright p-5 rounded-2xl shadow-lg relative overflow-hidden group transition-all duration-200 hover:border-brand-accent/40">
+                <div className="flex justify-between items-start">
+                  <div className="space-y-0.5">
+                    <span className="text-[10px] font-sans font-medium uppercase text-slate-400 tracking-wider">
+                      Total em PIX
+                    </span>
+                    <p className="text-[9px] text-slate-500 font-sans leading-none">Valores recebidos via QR Code</p>
+                  </div>
+                  <div className="p-1 rounded bg-brand-accent/10 text-brand-accent">
+                    <TrendingUp className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+                <h3 className="text-lg font-mono font-bold text-brand-accent tracking-tight mt-3">
+                  {DecimalMath.formatBRL(biKpis.pix)}
+                </h3>
+                <div className="flex justify-between text-[8px] font-mono text-slate-400 mt-2 border-t border-brand-navy-bright/30 pt-1.5">
+                  <span>PIX Contábil</span>
+                  <span className="text-brand-accent font-bold text-[8px]">QR CODE</span>
+                </div>
+              </div>
+
+              {/* Card 5: TOTAL EM CARTÕES */}
+              <div className="bg-brand-navy-card border border-brand-navy-bright p-5 rounded-2xl shadow-lg relative overflow-hidden group transition-all duration-200 hover:border-blue-500/40">
+                <div className="flex justify-between items-start">
+                  <div className="space-y-0.5">
+                    <span className="text-[10px] font-sans font-medium uppercase text-slate-400 tracking-wider">
+                      Total em Cartões
+                    </span>
+                    <p className="text-[9px] text-slate-500 font-sans leading-none">Crédito/Débito consolidados</p>
+                  </div>
+                  <div className="p-1 rounded bg-blue-500/10 text-blue-500">
+                    <CreditCard className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+                <h3 className="text-lg font-mono font-bold text-blue-400 tracking-tight mt-3">
+                  {DecimalMath.formatBRL(biKpis.cartoes)}
+                </h3>
+                <div className="flex justify-between text-[8px] font-mono text-slate-400 mt-2 border-t border-brand-navy-bright/30 pt-1.5">
+                  <span>Maquininhas POS</span>
+                  <span className="text-blue-400 font-bold text-[8px]">DEB/CRE</span>
+                </div>
+              </div>
+
+              {/* Card 6: CONVÊNIO DESPACHANTES (EM ABERTO) */}
+              <div className="bg-brand-navy-card border border-brand-navy-bright p-5 rounded-2xl shadow-lg relative overflow-hidden group transition-all duration-200 hover:border-pink-500/40">
+                <div className="flex justify-between items-start">
+                  <div className="space-y-0.5">
+                    <span className="text-[10px] font-sans font-medium uppercase text-slate-400 tracking-wider">
+                      Convênio Despachantes (Aberto)
+                    </span>
+                    <p className="text-[9px] text-slate-500 font-sans leading-none">Saldo totalizador de débitos B2B</p>
+                  </div>
+                  <div className="p-1 rounded bg-pink-500/10 text-pink-500">
+                    <Users className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+                <h3 className="text-lg font-mono font-bold text-pink-400 tracking-tight mt-3">
+                  {DecimalMath.formatBRL(convenioAbertoTotal)}
+                </h3>
+                <div className="flex justify-between text-[8px] font-mono text-slate-400 mt-2 border-t border-brand-navy-bright/30 pt-1.5">
+                  <span>Contas Correntes B2B</span>
+                  <span className="text-pink-400 font-bold uppercase text-[7px]">Inflow B2B</span>
+                </div>
+              </div>
+
+              {/* Card 7: FLUXO DE SANGRIAS */}
+              <div className="bg-brand-navy-card border border-brand-navy-bright p-5 rounded-2xl shadow-lg relative overflow-hidden group transition-all duration-200 hover:border-purple-500/40">
+                <div className="flex justify-between items-start">
+                  <div className="space-y-0.5">
+                    <span className="text-[10px] font-sans font-medium uppercase text-slate-400 tracking-wider">
+                      Fluxo de Sangrias
+                    </span>
+                    <p className="text-[9px] text-slate-500 font-sans leading-none">Total de retiradas manuais</p>
+                  </div>
+                  <div className="p-1 rounded bg-purple-500/10 text-purple-500">
+                    <ArrowDownLeft className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+                <h3 className="text-lg font-mono font-bold text-purple-400 tracking-tight mt-3">
+                  {DecimalMath.formatBRL(biKpis.sangrias)}
+                </h3>
+                <div className="flex justify-between text-[8px] font-mono text-slate-400 mt-2 border-t border-brand-navy-bright/30 pt-1.5">
+                  <span>Retiradas Gerenciais</span>
+                  <span className="text-purple-400 font-bold uppercase text-[7px]">SAÍDAS</span>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            {/* Gráfico A: Rosca/Pizza por Meio de Pagamento */}
+            <div className="bg-brand-navy-card border border-brand-navy-bright/60 p-5 rounded-2xl shadow-lg flex flex-col justify-between">
+              <div>
+                <div className="flex items-center gap-1.5 text-brand-emerald">
+                  <span className="w-1.5 h-1.5 bg-brand-emerald rounded-full animate-ping" />
+                  <h4 className="font-display font-extrabold text-[11px] uppercase tracking-wider text-slate-200">
+                    Participação por Meio de Pagamento
+                  </h4>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1 leading-normal">
+                  Representatividade percentual das transações liquidadas no balcão físico de Passo Fundo.
+                </p>
+              </div>
+
+              <div className="flex flex-col items-center justify-center space-y-4 py-4">
+                <div className="relative w-36 h-36 flex items-center justify-center">
+                  {/* Concentric Progress Rings (Multi Arc Representation for extreme visual premium quality) */}
+                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="40" fill="transparent" stroke="#040811" strokeWidth="8" />
+
+                    {/* Dynamically layered concentric colored progress arcs */}
+                    {/* Ring 1: Pix (Emerald) */}
+                    <circle cx="50" cy="50" r="40" fill="transparent" stroke="#10b981" strokeWidth="8"
+                      strokeDasharray="251.2" strokeDashoffset={251.2 - (251.2 * pixP) / 100}
+                      strokeLinecap="round" className="transition-all duration-500"
+                    />
+
+                    {/* Inner track for cards */}
+                    <circle cx="50" cy="50" r="30" fill="transparent" stroke="#040811" strokeWidth="6" />
+                    <circle cx="50" cy="50" r="30" fill="transparent" stroke="#3b82f6" strokeWidth="6"
+                      strokeDasharray="188.4" strokeDashoffset={188.4 - (188.4 * getPercent(cardVolumeCents)) / 100}
+                      strokeLinecap="round" className="transition-all duration-500"
+                    />
+
+                    {/* Inner track for Cash */}
+                    <circle cx="50" cy="50" r="22" fill="transparent" stroke="#040811" strokeWidth="5" />
+                    <circle cx="50" cy="50" r="22" fill="transparent" stroke="#f59e0b" strokeWidth="5"
+                      strokeDasharray="138.2" strokeDashoffset={138.2 - (138.2 * getPercent(cashVolumeCents)) / 100}
+                      strokeLinecap="round" className="transition-all duration-500"
+                    />
+                  </svg>
+
+                  <div className="absolute text-center bg-brand-navy-deep/80 px-2.5 py-1.5 rounded-xl border border-brand-navy-bright/10 text-slate-100">
+                    <span className="text-md font-black font-mono block leading-none">{pixP}%</span>
+                    <span className="text-[7px] font-mono uppercase text-slate-400 block mt-0.5">PIX LÍDER</span>
+                  </div>
+                </div>
+
+                {/* Scoreboard List styled with JetBrains Mono */}
+                <div className="w-full space-y-1.5 font-mono text-[10px] bg-brand-navy-deep/60 p-3 rounded-xl border border-brand-navy-bright/35">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-brand-emerald" />
+                      <span className="text-slate-300 font-sans">PIX</span>
+                    </div>
+                    <span className="text-slate-100 font-bold">{pixP}% ({DecimalMath.formatBRL(DecimalMath.fromCents(pixVolumeCents))})</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-blue-500" />
+                      <span className="text-slate-300 font-sans">Cartões (DEB/CRÉD)</span>
+                    </div>
+                    <span className="text-slate-100 font-bold">{getPercent(cardVolumeCents)}% ({DecimalMath.formatBRL(DecimalMath.fromCents(cardVolumeCents))})</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-amber-500" />
+                      <span className="text-slate-300 font-sans">Espécie (Dinheiro)</span>
+                    </div>
+                    <span className="text-slate-100 font-bold">{getPercent(cashVolumeCents)}% ({DecimalMath.formatBRL(DecimalMath.fromCents(cashVolumeCents))})</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-purple-500" />
+                      <span className="text-slate-300 font-sans">Boleto (Convênio)</span>
+                    </div>
+                    <span className="text-slate-100 font-bold">{getPercent(faturadosVolumeCents)}% ({DecimalMath.formatBRL(DecimalMath.fromCents(faturadosVolumeCents))})</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Gráfico B: Linha Dinâmica de Produtividade Horária */}
+            <div className="bg-brand-navy-card border border-brand-navy-bright/60 p-5 rounded-2xl shadow-lg flex flex-col justify-between">
+              <div>
+                <div className="flex items-center gap-1.5 text-brand-emerald">
+                  <Clock className="w-4 h-4 text-brand-accent" />
+                  <h4 className="font-display font-extrabold text-[11px] uppercase tracking-wider text-slate-200">
+                    Curva de Produtividade Horária (Picos)
+                  </h4>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1 leading-normal">
+                  Representação em tempo real dos picos de caixa para escala otimizada e intervalos de equipe.
+                </p>
+              </div>
+
+              <div className="relative py-4">
+                <svg viewBox="0 0 500 130" className="w-full h-auto overflow-visible">
+                  <defs>
+                    <linearGradient id="neonGlowLine" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.45" />
+                      <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.0" />
+                    </linearGradient>
+                  </defs>
+
+                  {/* Gridlines */}
+                  <line x1="40" y1="110" x2="460" y2="110" stroke="#101827" strokeWidth="1" />
+                  <line x1="40" y1="70" x2="460" y2="70" stroke="#1f2937" strokeWidth="0.5" strokeDasharray="3" />
+                  <line x1="40" y1="30" x2="460" y2="30" stroke="#1f2937" strokeWidth="0.5" strokeDasharray="3" />
+
+                  {/* programmatically scale and draw the smooth spline area */}
+                  {(() => {
+                    const maxVal = Math.max(...hourlyData.map(h => parseFloat(h.total)), 1.00);
+
+                    const points = hourlyData.map((h, i) => {
+                      const x = 50 + i * 100;
+                      const v = parseFloat(h.total);
+                      const y = 110 - (v / maxVal) * 80;
+                      return { x, y, val: h.total, count: h.count };
+                    });
+
+                    const strokeD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+                    const fillD = `${strokeD} L 450 110 L 50 110 Z`;
+
+                    return (
+                      <>
+                        <path d={fillD} fill="url(#neonGlowLine)" className="transition-all duration-500" />
+                        <path d={strokeD} fill="none" stroke="#3b82f6" strokeWidth="3" className="transition-all duration-500" />
+
+                        {points.map((p, i) => (
+                          <g key={i} className="group cursor-pointer">
+                            <circle cx={p.x} cy={p.y} r="5" fill="#3b82f6" stroke="#0a0f1d" strokeWidth="2" />
+                            <text x={p.x} y={p.y - 12} textAnchor="middle" fill="#f1f5f9" fontSize="9" className="font-mono font-bold hidden group-hover:block bg-brand-navy-deep px-1 rounded">
+                              {DecimalMath.formatBRL(p.val)}
+                            </text>
+                          </g>
+                        ))}
+                      </>
+                    );
+                  })()}
+                </svg>
+
+                <div className="flex justify-between px-3 text-[8px] font-mono text-slate-500 uppercase mt-2">
+                  {hourlyData.map((h, i) => (
+                    <div key={i} className="text-center font-mono space-y-0.5">
+                      <span className="block text-slate-400 font-semibold">{h.label}</span>
+                      <span className="text-[7px] text-slate-500 font-normal">{h.count} vds</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Security parameters */}
-              <div className="p-3 bg-slate-900 border border-brand-navy-bright rounded-xl text-[11px] font-mono space-y-1">
-                <p className="font-semibold text-brand-emerald">🔐 PARÂMETROS RLS COMPROVADOS:</p>
-                <p className="text-slate-400">Atribuído ao Usuário: {viewTxDetail.createdBy.userName} ({viewTxDetail.createdBy.userRole})</p>
-                <p className="text-slate-400">Autorização Auditoria: CONECTADO [POSTGRES_DQL_SESSION]</p>
-                <p className="text-amber-500 font-bold truncate">Limitação SQL: {viewTxDetail.createdBy.rlsScope}</p>
-              </div>
-
-              {/* Cash Totals Summary */}
-              <div className="pt-3 border-t border-brand-navy-bright flex justify-between items-end">
-                <div>
-                  <span className="text-[10px] uppercase font-mono font-bold text-slate-400">Pagamento:</span>
-                  <span className="text-xs text-slate-200 block font-bold">{viewTxDetail.paymentMethod} {viewTxDetail.installments > 1 ? `(${viewTxDetail.installments}x)` : ''}</span>
+              <div className="pt-3 border-t border-brand-navy-bright flex items-center justify-between text-xs bg-brand-navy-deep/30 p-2.5 rounded-xl">
+                <div className="font-mono text-[9px]">
+                  <span className="text-slate-500 block uppercase">Canal Principal</span>
+                  <span className="text-slate-200 font-sans font-semibold">Passo Fundo - Balcão Principal</span>
                 </div>
-                <div className="text-right flex flex-col items-end gap-1">
-                  {viewTxDetail.issqn && parseFloat(viewTxDetail.issqn) > 0 && (
-                    <span className="text-[10px] text-slate-450 font-mono">
-                      ISSQN (2%): {DecimalMath.formatBRL(viewTxDetail.issqn)}
-                    </span>
-                  )}
-                  <span className="text-[10px] uppercase font-mono font-bold text-slate-400">VALOR TOTAL LÍQUIDO:</span>
-                  <span className="text-lg font-mono font-bold text-brand-emerald block">
-                    {DecimalMath.formatBRL(viewTxDetail.netTotal)}
-                  </span>
+                <div className="text-right font-mono text-[9px]">
+                  <span className="text-slate-500 block uppercase">SLA Monitor</span>
+                  <span className="text-brand-emerald font-sans font-bold">EXCELENTE (99.8%)</span>
                 </div>
               </div>
-
             </div>
 
-          </div>
-        </div>
-      )}
-
-    </>
-  ) : subTab === 'BI_MASTER' ? (
-    /* ==================== CAMADA DE BI MASTER REALTIME (RF005) ==================== */
-    <div className="space-y-6 animate-fade-in font-sans transition-all text-slate-100">
-      
-      {/* 1. SELETOR DE PERÍODO TEMPORAL AVANÇADO (FILTROS RAPIDOS + CUSTOM RANGE) */}
-      <div className="bg-brand-navy-card border border-brand-navy-bright/60 p-4 rounded-xl flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 shadow-lg">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4.5 h-4.5 text-brand-emerald" />
-            <span className="font-display font-bold text-sm text-slate-200">Filtros Temporais Avançados</span>
-          </div>
-          <p className="text-[11px] text-slate-400">Selecione o range temporal das transações para atualizar o Cockpit BI.</p>
-        </div>
-        
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => setActiveDateFilter('HOJE')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider font-mono transition-all border cursor-pointer ${
-              activeDateFilter === 'HOJE'
-                ? 'bg-brand-emerald/15 text-brand-emerald border-brand-emerald/40 shadow-sm'
-                : 'bg-brand-navy-deep text-slate-400 border-brand-navy-bright/40 hover:text-slate-200 hover:bg-brand-navy-bright/10'
-            }`}
-          >
-            Hoje
-          </button>
-          <button
-            onClick={() => setActiveDateFilter('ONTEM')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider font-mono transition-all border cursor-pointer ${
-              activeDateFilter === 'ONTEM'
-                ? 'bg-brand-emerald/15 text-brand-emerald border-brand-emerald/40 shadow-sm'
-                : 'bg-brand-navy-deep text-slate-400 border-brand-navy-bright/40 hover:text-slate-200 hover:bg-brand-navy-bright/10'
-            }`}
-          >
-            Ontem
-          </button>
-          <button
-            onClick={() => setActiveDateFilter('7DIAS')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider font-mono transition-all border cursor-pointer ${
-              activeDateFilter === '7DIAS'
-                ? 'bg-brand-emerald/15 text-brand-emerald border-brand-emerald/40 shadow-sm'
-                : 'bg-brand-navy-deep text-slate-400 border-brand-navy-bright/40 hover:text-slate-200 hover:bg-brand-navy-bright/10'
-            }`}
-          >
-            Últimos 7 Dias
-          </button>
-          <button
-            onClick={() => setActiveDateFilter('MES')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider font-mono transition-all border cursor-pointer ${
-              activeDateFilter === 'MES'
-                ? 'bg-brand-emerald/15 text-brand-emerald border-brand-emerald/40 shadow-sm'
-                : 'bg-brand-navy-deep text-slate-400 border-brand-navy-bright/40 hover:text-slate-200 hover:bg-brand-navy-bright/10'
-            }`}
-          >
-            Mês Atual
-          </button>
-          <button
-            onClick={() => setActiveDateFilter('CUSTOM')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider font-mono transition-all border cursor-pointer ${
-              activeDateFilter === 'CUSTOM'
-                ? 'bg-brand-emerald/15 text-brand-emerald border-brand-emerald/40 shadow-sm'
-                : 'bg-brand-navy-deep text-slate-400 border-brand-navy-bright/40 hover:text-slate-200 hover:bg-brand-navy-bright/10'
-            }`}
-          >
-            Personalizado
-          </button>
-
-          {activeDateFilter === 'CUSTOM' && (
-            <div className="flex items-center gap-2 animate-fade-in pl-2 border-l border-brand-navy-bright/40">
-              <input
-                type="date"
-                value={customStartDate}
-                onChange={(e) => setCustomStartDate(e.target.value)}
-                className="bg-brand-navy-deep text-slate-200 border border-brand-navy-bright/50 px-2 py-1 rounded text-xs focus:outline-none focus:border-brand-emerald font-mono"
-              />
-              <span className="text-slate-500 font-mono text-xs">até</span>
-              <input
-                type="date"
-                value={customEndDate}
-                onChange={(e) => setCustomEndDate(e.target.value)}
-                className="bg-brand-navy-deep text-slate-200 border border-brand-navy-bright/50 px-2 py-1 rounded text-xs focus:outline-none focus:border-brand-emerald font-mono"
-              />
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 2. SENSOR LÓGICO: ALERTA DE QUEBRA DE CAIXA (DIVERGÊNCIAS DETECTADAS NAS CONFERÊNCIAS CEGAS) */}
-      {activeAlerts.map((closing: any, idx: number) => {
-        const uniqueKey = `${closing.dataOperacional}-${closing.horarioFechamento}-${closing.usuarioMaster}`;
-        const valNum = parseFloat(closing.divergencia);
-        const isQuebra = valNum < 0;
-        const statusType = isQuebra ? 'Quebra de Caixa' : 'Sobra de Caixa';
-        
-        return (
-          <div 
-            key={uniqueKey} 
-            className="p-4 bg-red-950/40 border border-red-500/30 rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs gap-3 animate-pulse shadow-md"
-          >
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-red-500/15 text-red-400">
-                <AlertTriangle className="w-5 h-5 animate-bounce" />
-              </div>
-              <div className="space-y-1">
-                <h5 className="font-display font-extrabold text-red-400 uppercase tracking-wide text-[11px]">
-                  Alerta Crítico de Conformidade Fiscal · {statusType}
-                </h5>
-                <p className="text-slate-350 font-sans leading-relaxed">
-                  Atenção: Divergência de <strong className="font-mono text-red-400">{DecimalMath.formatBRL(closing.divergencia)}</strong> detectada no <strong className="text-slate-100">Caixa 01</strong> · Operador: <strong className="font-mono text-brand-emerald">{closing.usuarioMaster}</strong> · Fechamento às {closing.horarioFechamento} de {closing.dataOperacional}.
+            {/* Gráfico C: Barras Comparativas Particular vs Despachantes */}
+            <div className="bg-brand-navy-card border border-brand-navy-bright/60 p-5 rounded-2xl shadow-lg flex flex-col justify-between">
+              <div>
+                <div className="flex items-center gap-1.5 text-brand-emerald">
+                  <Users className="w-4 h-4 text-pink-400" />
+                  <h4 className="font-display font-extrabold text-[11px] uppercase tracking-wider text-slate-200">
+                    Particular vs Despachantes B2B
+                  </h4>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1 leading-normal">
+                  Comparativo de receita acumulada por tipo de cliente para otimização de campanhas comerciais.
                 </p>
               </div>
-            </div>
-            
-            <button
-              onClick={() => {
-                setDismissedDivergences(prev => [...prev, uniqueKey]);
-              }}
-              className="bg-red-500/25 hover:bg-red-500/40 text-red-300 border border-red-500/35 hover:border-red-500/50 font-mono text-[9px] uppercase font-semibold px-2.5 py-1.5 rounded-lg transition-all cursor-pointer shadow-inner self-start sm:self-center"
-            >
-              Auditar & Resolver Alerta
-            </button>
-          </div>
-        );
-      })}
 
-      {/* Ambient Realtime Status Ribbon if no critical undismissed alerts */}
-      {activeAlerts.length === 0 && (
-        <div className="p-4 bg-brand-emerald/5 border border-brand-emerald/10 rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs gap-3 shadow-inner">
-          <div className="flex items-center gap-2.5">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-emerald opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-emerald"></span>
-            </span>
-            <p className="text-slate-300 leading-tight">
-              <strong>SISTEMA CONCILIADO E LIVRE DE ALERTAS</strong> · Todas as conferências cegas e auditorias de encerramento de turno bateram com precisão centesimal de R$ 0,00.
-            </p>
-          </div>
-          <span className="bg-brand-navy-deep px-2.5 py-1 border border-brand-navy-bright/45 rounded text-[9px] font-mono uppercase text-brand-emerald font-bold">
-            Audit Level Active
-          </span>
-        </div>
-      )}
-
-      {/* 3. CARDS DE KPI DE ALTA PRECISÃO NO TOPO DO PAINEL - CENTRALIZAÇÃO E NOVA DISTRIBUIÇÃO DOS 7 KPIS */}
-      <div className="space-y-5">
-        
-        {/* LINHA 1 (INDICADORES DE LIQUIDEZ E COMPLEMENTARIEDADE - ENFATIZADOS) */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
-          
-          {/* Card 1: FATURAMENTO BRUTO DO DIA */}
-          <div className="md:col-span-2 col-span-1 bg-brand-navy-card border border-brand-navy-bright p-5 rounded-2xl shadow-lg relative overflow-hidden group transition-all duration-200 hover:border-brand-emerald/40">
-            <div className="flex justify-between items-start">
-              <div className="space-y-0.5">
-                <span className="text-[10px] font-sans font-medium uppercase text-slate-400 tracking-wider">
-                  Faturamento Bruto do Dia
-                </span>
-                <p className="text-[9px] text-slate-500 font-sans leading-none">Total absoluto de todas as entradas do dia corrente</p>
-              </div>
-              <div className="p-1.5 rounded bg-brand-emerald/10 text-brand-emerald">
-                <TrendingUp className="w-4 h-4" />
-              </div>
-            </div>
-            <h3 className="text-xl font-mono font-bold text-brand-emerald tracking-tight mt-3">
-              {DecimalMath.formatBRL(biKpis.faturamentoDia)}
-            </h3>
-            <div className="flex items-center gap-1 text-[8px] font-mono text-slate-400 mt-2 border-t border-brand-navy-bright/30 pt-1.5 justify-between">
-              <span className="text-brand-emerald font-bold">● REALTIME CONSOLIDADO</span>
-              <span>Exclui faturamento a prazo (boleto)</span>
-            </div>
-          </div>
-
-          {/* Card 2: TOTAL EM DINHEIRO */}
-          <div className="bg-brand-navy-card border border-brand-navy-bright p-5 rounded-2xl shadow-lg relative overflow-hidden group transition-all duration-200 hover:border-amber-500/40">
-            <div className="flex justify-between items-start">
-              <div className="space-y-0.5">
-                <span className="text-[10px] font-sans font-medium uppercase text-slate-400 tracking-wider">
-                  Total em Dinheiro
-                </span>
-                <p className="text-[9px] text-slate-500 font-sans leading-none">Espécie contida fisicamente nas gavetas</p>
-              </div>
-              <div className="p-1.5 rounded bg-amber-500/10 text-amber-500">
-                <Coins className="w-4 h-4" />
-              </div>
-            </div>
-            <h3 className="text-lg font-mono font-bold text-amber-500 tracking-tight mt-3">
-              {DecimalMath.formatBRL(biKpis.dinheiro)}
-            </h3>
-            <div className="flex justify-between text-[8px] font-mono text-slate-400 mt-2 border-t border-brand-navy-bright/30 pt-1.5">
-              <span>Gaveta Física</span>
-              <span className="text-amber-500 bg-amber-500/10 px-1 rounded font-bold text-[8px]">REAL</span>
-            </div>
-          </div>
-
-          {/* Card 3: STATUS DE CONCILIAÇÃO */}
-          <div className="bg-brand-navy-card border border-brand-navy-bright p-5 rounded-2xl shadow-lg relative overflow-hidden group transition-all duration-200 hover:border-teal-500/40">
-            <div className="flex justify-between items-start">
-              <div className="space-y-0.5">
-                <span className="text-[10px] font-sans font-medium uppercase text-slate-400 tracking-wider">
-                  Status de Conciliação
-                </span>
-                <p className="text-[9px] text-slate-500 font-sans leading-none">Diferença Proj vs Real</p>
-              </div>
-              <div className="p-1.5 rounded bg-teal-500/10 text-teal-400">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-              </div>
-            </div>
-            {(() => {
-              const totalDivergencia = historicalClosings.reduce((sum, c) => DecimalMath.add(sum, c.divergencia || '0.00'), '0.00');
-              const hasError = DecimalMath.toCents(totalDivergencia) !== 0;
-              
-              return (
-                <div className="mt-3">
-                  {hasError ? (
-                    <h3 className="text-lg font-mono font-bold text-red-500 animate-pulse tracking-tight">
-                      {DecimalMath.formatBRL(totalDivergencia)}
-                    </h3>
-                  ) : (
-                    <h3 className="text-lg font-mono font-bold text-brand-emerald tracking-tight">
-                      R$ 0,00 - Caixa Conciliado
-                    </h3>
-                  )}
-                  <div className="mt-2 border-t border-brand-navy-bright/30 pt-1.5 flex items-center justify-between">
-                    {hasError ? (
-                      <span className="bg-red-500/15 text-red-400 font-sans text-[8px] px-1 rounded font-extrabold tracking-tight uppercase animate-pulse leading-none py-0.5">
-                        Divergência Detectada
-                      </span>
-                    ) : (
-                      <span className="bg-teal-500/15 text-teal-450 font-sans text-[8px] px-1 rounded font-extrabold tracking-tight uppercase leading-none py-0.5">
-                        Caixa Conciliado
-                      </span>
-                    )}
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-
-        </div>
-
-        {/* LINHA 2 (MEIOS DE PAGAMENTO E FLUXO OPERACIONAL - 4 COLUNAS IGUAIS) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          
-          {/* Card 4: TOTAL EM PIX */}
-          <div className="bg-brand-navy-card border border-brand-navy-bright p-5 rounded-2xl shadow-lg relative overflow-hidden group transition-all duration-200 hover:border-brand-accent/40">
-            <div className="flex justify-between items-start">
-              <div className="space-y-0.5">
-                <span className="text-[10px] font-sans font-medium uppercase text-slate-400 tracking-wider">
-                  Total em PIX
-                </span>
-                <p className="text-[9px] text-slate-500 font-sans leading-none">Valores recebidos via QR Code</p>
-              </div>
-              <div className="p-1 rounded bg-brand-accent/10 text-brand-accent">
-                <TrendingUp className="w-3.5 h-3.5" />
-              </div>
-            </div>
-            <h3 className="text-lg font-mono font-bold text-brand-accent tracking-tight mt-3">
-              {DecimalMath.formatBRL(biKpis.pix)}
-            </h3>
-            <div className="flex justify-between text-[8px] font-mono text-slate-400 mt-2 border-t border-brand-navy-bright/30 pt-1.5">
-              <span>PIX Contábil</span>
-              <span className="text-brand-accent font-bold text-[8px]">QR CODE</span>
-            </div>
-          </div>
-
-          {/* Card 5: TOTAL EM CARTÕES */}
-          <div className="bg-brand-navy-card border border-brand-navy-bright p-5 rounded-2xl shadow-lg relative overflow-hidden group transition-all duration-200 hover:border-blue-500/40">
-            <div className="flex justify-between items-start">
-              <div className="space-y-0.5">
-                <span className="text-[10px] font-sans font-medium uppercase text-slate-400 tracking-wider">
-                  Total em Cartões
-                </span>
-                <p className="text-[9px] text-slate-500 font-sans leading-none">Crédito/Débito consolidados</p>
-              </div>
-              <div className="p-1 rounded bg-blue-500/10 text-blue-500">
-                <CreditCard className="w-3.5 h-3.5" />
-              </div>
-            </div>
-            <h3 className="text-lg font-mono font-bold text-blue-400 tracking-tight mt-3">
-              {DecimalMath.formatBRL(biKpis.cartoes)}
-            </h3>
-            <div className="flex justify-between text-[8px] font-mono text-slate-400 mt-2 border-t border-brand-navy-bright/30 pt-1.5">
-              <span>Maquininhas POS</span>
-              <span className="text-blue-400 font-bold text-[8px]">DEB/CRE</span>
-            </div>
-          </div>
-
-          {/* Card 6: CONVÊNIO DESPACHANTES (EM ABERTO) */}
-          <div className="bg-brand-navy-card border border-brand-navy-bright p-5 rounded-2xl shadow-lg relative overflow-hidden group transition-all duration-200 hover:border-pink-500/40">
-            <div className="flex justify-between items-start">
-              <div className="space-y-0.5">
-                <span className="text-[10px] font-sans font-medium uppercase text-slate-400 tracking-wider">
-                  Convênio Despachantes (Aberto)
-                </span>
-                <p className="text-[9px] text-slate-500 font-sans leading-none">Saldo totalizador de débitos B2B</p>
-              </div>
-              <div className="p-1 rounded bg-pink-500/10 text-pink-500">
-                <Users className="w-3.5 h-3.5" />
-              </div>
-            </div>
-            <h3 className="text-lg font-mono font-bold text-pink-400 tracking-tight mt-3">
-              {DecimalMath.formatBRL(convenioAbertoTotal)}
-            </h3>
-            <div className="flex justify-between text-[8px] font-mono text-slate-400 mt-2 border-t border-brand-navy-bright/30 pt-1.5">
-              <span>Contas Correntes B2B</span>
-              <span className="text-pink-400 font-bold uppercase text-[7px]">Inflow B2B</span>
-            </div>
-          </div>
-
-          {/* Card 7: FLUXO DE SANGRIAS */}
-          <div className="bg-brand-navy-card border border-brand-navy-bright p-5 rounded-2xl shadow-lg relative overflow-hidden group transition-all duration-200 hover:border-purple-500/40">
-            <div className="flex justify-between items-start">
-              <div className="space-y-0.5">
-                <span className="text-[10px] font-sans font-medium uppercase text-slate-400 tracking-wider">
-                  Fluxo de Sangrias
-                </span>
-                <p className="text-[9px] text-slate-500 font-sans leading-none">Total de retiradas manuais</p>
-              </div>
-              <div className="p-1 rounded bg-purple-500/10 text-purple-500">
-                <ArrowDownLeft className="w-3.5 h-3.5" />
-              </div>
-            </div>
-            <h3 className="text-lg font-mono font-bold text-purple-400 tracking-tight mt-3">
-              {DecimalMath.formatBRL(biKpis.sangrias)}
-            </h3>
-            <div className="flex justify-between text-[8px] font-mono text-slate-400 mt-2 border-t border-brand-navy-bright/30 pt-1.5">
-              <span>Retiradas Gerenciais</span>
-              <span className="text-purple-400 font-bold uppercase text-[7px]">SAÍDAS</span>
-            </div>
-          </div>
-
-        </div>
-
-      </div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Gráfico A: Rosca/Pizza por Meio de Pagamento */}
-        <div className="bg-brand-navy-card border border-brand-navy-bright/60 p-5 rounded-2xl shadow-lg flex flex-col justify-between">
-          <div>
-            <div className="flex items-center gap-1.5 text-brand-emerald">
-              <span className="w-1.5 h-1.5 bg-brand-emerald rounded-full animate-ping" />
-              <h4 className="font-display font-extrabold text-[11px] uppercase tracking-wider text-slate-200">
-                Participação por Meio de Pagamento
-              </h4>
-            </div>
-            <p className="text-[10px] text-slate-400 mt-1 leading-normal">
-              Representatividade percentual das transações liquidadas no balcão físico de Passo Fundo.
-            </p>
-          </div>
-
-          <div className="flex flex-col items-center justify-center space-y-4 py-4">
-            <div className="relative w-36 h-36 flex items-center justify-center">
-              {/* Concentric Progress Rings (Multi Arc Representation for extreme visual premium quality) */}
-              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r="40" fill="transparent" stroke="#040811" strokeWidth="8" />
-                
-                {/* Dynamically layered concentric colored progress arcs */}
-                {/* Ring 1: Pix (Emerald) */}
-                <circle cx="50" cy="50" r="40" fill="transparent" stroke="#10b981" strokeWidth="8" 
-                  strokeDasharray="251.2" strokeDashoffset={251.2 - (251.2 * pixP) / 100} 
-                  strokeLinecap="round" className="transition-all duration-500"
-                />
-                
-                {/* Inner track for cards */}
-                <circle cx="50" cy="50" r="30" fill="transparent" stroke="#040811" strokeWidth="6" />
-                <circle cx="50" cy="50" r="30" fill="transparent" stroke="#3b82f6" strokeWidth="6" 
-                  strokeDasharray="188.4" strokeDashoffset={188.4 - (188.4 * getPercent(cardVolumeCents)) / 100} 
-                  strokeLinecap="round" className="transition-all duration-500"
-                />
-                
-                {/* Inner track for Cash */}
-                <circle cx="50" cy="50" r="22" fill="transparent" stroke="#040811" strokeWidth="5" />
-                <circle cx="50" cy="50" r="22" fill="transparent" stroke="#f59e0b" strokeWidth="5" 
-                  strokeDasharray="138.2" strokeDashoffset={138.2 - (138.2 * getPercent(cashVolumeCents)) / 100} 
-                  strokeLinecap="round" className="transition-all duration-500"
-                />
-              </svg>
-              
-              <div className="absolute text-center bg-brand-navy-deep/80 px-2.5 py-1.5 rounded-xl border border-brand-navy-bright/10 text-slate-100">
-                <span className="text-md font-black font-mono block leading-none">{pixP}%</span>
-                <span className="text-[7px] font-mono uppercase text-slate-400 block mt-0.5">PIX LÍDER</span>
-              </div>
-            </div>
-
-            {/* Scoreboard List styled with JetBrains Mono */}
-            <div className="w-full space-y-1.5 font-mono text-[10px] bg-brand-navy-deep/60 p-3 rounded-xl border border-brand-navy-bright/35">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-brand-emerald" />
-                  <span className="text-slate-300 font-sans">PIX</span>
-                </div>
-                <span className="text-slate-100 font-bold">{pixP}% ({DecimalMath.formatBRL(DecimalMath.fromCents(pixVolumeCents))})</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-blue-500" />
-                  <span className="text-slate-300 font-sans">Cartões (DEB/CRÉD)</span>
-                </div>
-                <span className="text-slate-100 font-bold">{getPercent(cardVolumeCents)}% ({DecimalMath.formatBRL(DecimalMath.fromCents(cardVolumeCents))})</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-amber-500" />
-                  <span className="text-slate-300 font-sans">Espécie (Dinheiro)</span>
-                </div>
-                <span className="text-slate-100 font-bold">{getPercent(cashVolumeCents)}% ({DecimalMath.formatBRL(DecimalMath.fromCents(cashVolumeCents))})</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-purple-500" />
-                  <span className="text-slate-300 font-sans">Boleto (Convênio)</span>
-                </div>
-                <span className="text-slate-100 font-bold">{getPercent(faturadosVolumeCents)}% ({DecimalMath.formatBRL(DecimalMath.fromCents(faturadosVolumeCents))})</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Gráfico B: Linha Dinâmica de Produtividade Horária */}
-        <div className="bg-brand-navy-card border border-brand-navy-bright/60 p-5 rounded-2xl shadow-lg flex flex-col justify-between">
-          <div>
-            <div className="flex items-center gap-1.5 text-brand-emerald">
-              <Clock className="w-4 h-4 text-brand-accent" />
-              <h4 className="font-display font-extrabold text-[11px] uppercase tracking-wider text-slate-200">
-                Curva de Produtividade Horária (Picos)
-              </h4>
-            </div>
-            <p className="text-[10px] text-slate-400 mt-1 leading-normal">
-              Representação em tempo real dos picos de caixa para escala otimizada e intervalos de equipe.
-            </p>
-          </div>
-
-          <div className="relative py-4">
-            <svg viewBox="0 0 500 130" className="w-full h-auto overflow-visible">
-              <defs>
-                <linearGradient id="neonGlowLine" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.45" />
-                  <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.0" />
-                </linearGradient>
-              </defs>
-
-              {/* Gridlines */}
-              <line x1="40" y1="110" x2="460" y2="110" stroke="#101827" strokeWidth="1" />
-              <line x1="40" y1="70" x2="460" y2="70" stroke="#1f2937" strokeWidth="0.5" strokeDasharray="3" />
-              <line x1="40" y1="30" x2="460" y2="30" stroke="#1f2937" strokeWidth="0.5" strokeDasharray="3" />
-
-              {/* programmatically scale and draw the smooth spline area */}
               {(() => {
-                const maxVal = Math.max(...hourlyData.map(h => parseFloat(h.total)), 1.00);
-                
-                const points = hourlyData.map((h, i) => {
-                  const x = 50 + i * 100;
-                  const v = parseFloat(h.total);
-                  const y = 110 - (v / maxVal) * 80;
-                  return { x, y, val: h.total, count: h.count };
-                });
+                const partRev = parseFloat(biParticularRevenue);
+                const b2bRev = parseFloat(biB2bRevenue);
+                const maxVal = Math.max(partRev, b2bRev, 1.00);
 
-                const strokeD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-                const fillD = `${strokeD} L 450 110 L 50 110 Z`;
+                const partRatio = (partRev / maxVal) * 100;
+                const b2bRatio = (b2bRev / maxVal) * 100;
 
                 return (
-                  <>
-                    <path d={fillD} fill="url(#neonGlowLine)" className="transition-all duration-500" />
-                    <path d={strokeD} fill="none" stroke="#3b82f6" strokeWidth="3" className="transition-all duration-500" />
-                    
-                    {points.map((p, i) => (
-                      <g key={i} className="group cursor-pointer">
-                        <circle cx={p.x} cy={p.y} r="5" fill="#3b82f6" stroke="#0a0f1d" strokeWidth="2" />
-                        <text x={p.x} y={p.y - 12} textAnchor="middle" fill="#f1f5f9" fontSize="9" className="font-mono font-bold hidden group-hover:block bg-brand-navy-deep px-1 rounded">
-                          {DecimalMath.formatBRL(p.val)}
-                        </text>
-                      </g>
-                    ))}
-                  </>
+                  <div className="space-y-5 py-4">
+
+                    {/* Bar 1: Particular */}
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-slate-300 font-sans text-[11px] font-semibold flex items-center gap-1.5">
+                          <span className="w-2.5 h-2.5 rounded bg-brand-emerald" />
+                          Particular (B2C) · <span className="font-mono text-[9px] text-slate-500">{biParticularCount} vds</span>
+                        </span>
+                        <span className="font-mono font-bold text-brand-emerald">{DecimalMath.formatBRL(biParticularRevenue)}</span>
+                      </div>
+                      <div className="w-full bg-brand-navy-deep h-3.5 rounded-full overflow-hidden border border-brand-navy-bright/10 p-0.5">
+                        <div
+                          className="bg-brand-emerald h-full rounded-full transition-all duration-500 shadow-lg shadow-brand-emerald/10"
+                          style={{ width: `${Math.max(partRatio, 6)}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Bar 2: Despachantes */}
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-slate-300 font-sans text-[11px] font-semibold flex items-center gap-1.5">
+                          <span className="w-2.5 h-2.5 rounded bg-brand-accent" />
+                          Despachantes B2B · <span className="font-mono text-[9px] text-slate-500">{biB2bCount} vds</span>
+                        </span>
+                        <span className="font-mono font-bold text-brand-accent">{DecimalMath.formatBRL(biB2bRevenue)}</span>
+                      </div>
+                      <div className="w-full bg-brand-navy-deep h-3.5 rounded-full overflow-hidden border border-brand-navy-bright/10 p-0.5">
+                        <div
+                          className="bg-brand-accent h-full rounded-full transition-all duration-500 shadow-lg shadow-brand-accent/10"
+                          style={{ width: `${Math.max(b2bRatio, 6)}%` }}
+                        />
+                      </div>
+                    </div>
+
+                  </div>
                 );
               })()}
-            </svg>
 
-            <div className="flex justify-between px-3 text-[8px] font-mono text-slate-500 uppercase mt-2">
-              {hourlyData.map((h, i) => (
-                <div key={i} className="text-center font-mono space-y-0.5">
-                  <span className="block text-slate-400 font-semibold">{h.label}</span>
-                  <span className="text-[7px] text-slate-500 font-normal">{h.count} vds</span>
-                </div>
-              ))}
+              <p className="text-[9px] text-slate-500 italic text-center font-mono bg-brand-navy-deep/20 py-2 rounded">
+                Despachantes respondem pela maior fatia de receita total no balanço acumulado.
+              </p>
             </div>
+
           </div>
 
-          <div className="pt-3 border-t border-brand-navy-bright flex items-center justify-between text-xs bg-brand-navy-deep/30 p-2.5 rounded-xl">
-            <div className="font-mono text-[9px]">
-              <span className="text-slate-500 block uppercase">Canal Principal</span>
-              <span className="text-slate-200 font-sans font-semibold">Passo Fundo - Balcão Principal</span>
-            </div>
-            <div className="text-right font-mono text-[9px]">
-              <span className="text-slate-500 block uppercase">SLA Monitor</span>
-              <span className="text-brand-emerald font-sans font-bold">EXCELENTE (99.8%)</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Gráfico C: Barras Comparativas Particular vs Despachantes */}
-        <div className="bg-brand-navy-card border border-brand-navy-bright/60 p-5 rounded-2xl shadow-lg flex flex-col justify-between">
-          <div>
-            <div className="flex items-center gap-1.5 text-brand-emerald">
-              <Users className="w-4 h-4 text-pink-400" />
-              <h4 className="font-display font-extrabold text-[11px] uppercase tracking-wider text-slate-200">
-                Particular vs Despachantes B2B
-              </h4>
-            </div>
-            <p className="text-[10px] text-slate-400 mt-1 leading-normal">
-              Comparativo de receita acumulada por tipo de cliente para otimização de campanhas comerciais.
-            </p>
-          </div>
-
-          {(() => {
-            const partRev = parseFloat(biParticularRevenue);
-            const b2bRev = parseFloat(biB2bRevenue);
-            const maxVal = Math.max(partRev, b2bRev, 1.00);
-            
-            const partRatio = (partRev / maxVal) * 100;
-            const b2bRatio = (b2bRev / maxVal) * 100;
-
-            return (
-              <div className="space-y-5 py-4">
-                
-                {/* Bar 1: Particular */}
-                <div className="space-y-1.5">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-slate-300 font-sans text-[11px] font-semibold flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded bg-brand-emerald" />
-                      Particular (B2C) · <span className="font-mono text-[9px] text-slate-500">{biParticularCount} vds</span>
-                    </span>
-                    <span className="font-mono font-bold text-brand-emerald">{DecimalMath.formatBRL(biParticularRevenue)}</span>
-                  </div>
-                  <div className="w-full bg-brand-navy-deep h-3.5 rounded-full overflow-hidden border border-brand-navy-bright/10 p-0.5">
-                    <div 
-                      className="bg-brand-emerald h-full rounded-full transition-all duration-500 shadow-lg shadow-brand-emerald/10"
-                      style={{ width: `${Math.max(partRatio, 6)}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* Bar 2: Despachantes */}
-                <div className="space-y-1.5">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-slate-300 font-sans text-[11px] font-semibold flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded bg-brand-accent" />
-                      Despachantes B2B · <span className="font-mono text-[9px] text-slate-500">{biB2bCount} vds</span>
-                    </span>
-                    <span className="font-mono font-bold text-brand-accent">{DecimalMath.formatBRL(biB2bRevenue)}</span>
-                  </div>
-                  <div className="w-full bg-brand-navy-deep h-3.5 rounded-full overflow-hidden border border-brand-navy-bright/10 p-0.5">
-                    <div 
-                      className="bg-brand-accent h-full rounded-full transition-all duration-500 shadow-lg shadow-brand-accent/10"
-                      style={{ width: `${Math.max(b2bRatio, 6)}%` }}
-                    />
-                  </div>
-                </div>
-
-              </div>
-            );
-          })()}
-
-          <p className="text-[9px] text-slate-500 italic text-center font-mono bg-brand-navy-deep/20 py-2 rounded">
-            Despachantes respondem pela maior fatia de receita total no balanço acumulado.
-          </p>
-        </div>
-
-      </div>
-
-      {/* 5. PAINEL DE MONITORIZAÇÃO DE CONFORMIDADE E ALERTAS (O LIVRO COMPLETO DE CLOSURES) */}
-      {!isMobile && (
-        <>
-          <div className="bg-brand-navy-card p-5 border border-brand-navy-bright rounded-2xl shadow-lg">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-          <div>
-            <h4 className="font-display font-semibold text-xs text-slate-200 uppercase tracking-wider flex items-center gap-2">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-accent opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-accent"></span>
-              </span>
-              Conformidade de Caixa & Livro de Conferências Auditadas
-            </h4>
-            <p className="text-[10px] text-slate-400 font-sans pl-4">
-              Registro histórico de auditorias operacionais e conferências cegas executadas ao fim de turnos.
-            </p>
-          </div>
-          
-          <button 
-            onClick={() => {
-              // Action helper: provide simulated test closure trigger
-              const simulatedDivergentReport = {
-                terminalId: 'Passo Fundo - Caixa 01',
-                dataOperacional: new Date().toLocaleDateString('pt-BR'),
-                horarioAbertura: '12:00:00',
-                horarioFechamento: new Date().toLocaleTimeString('pt-BR'),
-                usuarioMaster: rlsSession.email || 'operador.balcao@marks.com',
-                fundoTroco: caixaState.fundoTroco || '150.00',
-                entradasDinheiro: '110.00',
-                entradasPix: '50.00',
-                entradasCredito: '0.00',
-                entradasDebito: '0.00',
-                entradasBoleto: '0.00',
-                reforcos: '0.00',
-                retiradas: '0.00',
-                saldoEsperado: '260.00',
-                saldoInformado: '240.00', // -R$ 20.00 divergence!
-                divergencia: '-20.00',
-                status: 'Quebra de Caixa',
-                particularQty: 2,
-                particularTotal: '160.00',
-                b2bQty: 1,
-                b2bTotal: '100.00'
-              };
-              const stored = localStorage.getItem('marks_closing_reports') || '[]';
-              const parsed = JSON.parse(stored);
-              parsed.unshift(simulatedDivergentReport);
-              localStorage.setItem('marks_closing_reports', JSON.stringify(parsed));
-              // Trigger app alert reload
-              window.dispatchEvent(new Event('storage'));
-              addToastLocal('Simulação Concluída', 'Divergência registrada com sucesso.');
-              // Quick force component redraw by toggling active element state
-              setActiveDateFilter('HOJE');
-            }}
-            className="text-[9px] uppercase font-mono font-bold px-2.5 py-1.5 bg-brand-navy-deep hover:bg-brand-navy-bright border border-brand-navy-bright/70 hover:border-brand-emerald text-brand-emerald rounded-lg transition-all cursor-pointer"
-          >
-            Simular Divergência de Turno (Para Auditoria)
-          </button>
-        </div>
-
-        <div className="overflow-x-auto w-full">
-          <table className="w-full text-xs font-mono">
-            <thead>
-              <tr className="border-b border-brand-navy-bright/60 pb-2.5 text-slate-400">
-                <th className="text-left font-bold py-2 font-sans text-[11px]">Data / Hora</th>
-                <th className="text-left font-bold font-sans text-[11px]">Operador Responsável</th>
-                <th className="text-center font-bold font-sans text-[11px]">Esperado</th>
-                <th className="text-center font-bold font-sans text-[11px]">Informed (Cego)</th>
-                <th className="text-center font-bold font-sans text-[11px]">Divergência</th>
-                <th className="text-center font-bold font-sans text-[11px]">Status Auditoria</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-brand-navy-bright/30">
-              {historicalClosings.map((c: any, index: number) => {
-                const isDivergent = parseFloat(c.divergencia) !== 0;
-                return (
-                  <tr key={index} className="hover:bg-brand-navy-deep/40 transition-colors text-slate-300">
-                    <td className="py-3 font-mono font-medium text-slate-400">
-                      {c.dataOperacional} <span className="text-[10px] text-slate-600 font-sans block">{c.horarioFechamento}</span>
-                    </td>
-                    <td className="align-middle">
-                      <span className="font-bold text-slate-200">{c.usuarioMaster}</span>
-                      <span className="text-[9px] text-slate-500 font-mono block uppercase">{c.terminalId || 'Caixa 01'}</span>
-                    </td>
-                    <td className="text-center py-3 font-mono align-middle">
-                      {DecimalMath.formatBRL(c.saldoEsperado)}
-                    </td>
-                    <td className="text-center py-3 font-mono align-middle">
-                      {DecimalMath.formatBRL(c.saldoInformado)}
-                    </td>
-                    <td className={`text-center py-3 font-mono font-bold align-middle ${
-                      isDivergent ? 'text-red-400 animate-pulse' : 'text-slate-400 font-normal'
-                    }`}>
-                      {DecimalMath.formatBRL(c.divergencia)}
-                    </td>
-                    <td className="text-center py-3 align-middle">
-                      <span className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${
-                        c.status === 'Conciliado' || c.status === 'Livre' || !isDivergent
-                          ? 'bg-brand-emerald/10 text-brand-emerald' 
-                          : 'bg-red-500/10 text-red-400'
-                      }`}>
-                        {c.status || 'Conferência Cega'}
+          {/* 5. PAINEL DE MONITORIZAÇÃO DE CONFORMIDADE E ALERTAS (O LIVRO COMPLETO DE CLOSURES) */}
+          {!isMobile && (
+            <>
+              <div className="bg-brand-navy-card p-5 border border-brand-navy-bright rounded-2xl shadow-lg">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                  <div>
+                    <h4 className="font-display font-semibold text-xs text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-accent opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-accent"></span>
                       </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                      Conformidade de Caixa & Livro de Conferências Auditadas
+                    </h4>
+                    <p className="text-[10px] text-slate-400 font-sans pl-4">
+                      Registro histórico de auditorias operacionais e conferências cegas executadas ao fim de turnos.
+                    </p>
+                  </div>
 
-      {/* 6. TABELA DE FEED DE LOGS DIÁRIOS AO VIVO */}
-      <div className="bg-brand-navy-card p-5 border border-brand-navy-bright rounded-2xl shadow-lg">
-        <h4 className="font-display font-semibold text-xs text-slate-200 uppercase tracking-wider mb-4 flex items-center gap-2">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-emerald opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-emerald"></span>
-          </span>
-          Logs Diários: Feed de Atendimentos do Caixa (Tempo Real - D+0)
-        </h4>
-        <div className="overflow-x-auto w-full">
-          <table className="w-full text-xs font-mono">
-            <thead>
-              <tr className="border-b border-brand-navy-bright/60 pb-2.5 text-slate-400">
-                <th className="text-left font-bold py-2 font-sans text-[11px]">Friendly ID</th>
-                <th className="text-left font-bold font-sans text-[11px]">Hora / Data</th>
-                <th className="text-left font-bold font-sans text-[11px]">Operador</th>
-                <th className="text-left font-bold font-sans text-[11px]">Cliente Beneficiário</th>
-                <th className="text-center font-bold font-sans text-[11px]">Canal</th>
-                <th className="text-center font-bold font-sans text-[11px]">Método</th>
-                <th className="text-right font-bold font-sans text-[11px]">Valor Líquido</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-brand-navy-bright/35">
-              {biFilteredTx.map(tx => (
-                <tr key={tx.id} className="hover:bg-brand-navy-deep/40 transition-colors text-slate-300">
-                  <td className="py-2.5 text-slate-400 font-mono font-semibold">{tx.sequenceId}</td>
-                  <td>
-                    <span className="font-mono text-slate-300 block">{new Date(tx.timestamp).toLocaleTimeString('pt-BR')}</span>
-                    <span className="text-[9px] text-slate-500 font-mono font-normal">{new Date(tx.timestamp).toLocaleDateString('pt-BR')}</span>
-                  </td>
-                  <td className="text-slate-300 font-medium">{tx.createdBy.userName}</td>
-                  <td className="font-bold text-slate-100">{tx.clientName}</td>
-                  <td className="text-center font-bold text-brand-emerald text-[9px] uppercase tracking-wide">Passo Fundo</td>
-                  <td className="text-center">
-                    <span className={`px-2 py-0.5 rounded text-[9px] font-bold font-mono ${
-                      tx.paymentMethod === 'PIX' ? 'bg-brand-emerald/15 text-brand-emerald' :
-                      tx.paymentMethod === 'CASH' ? 'bg-amber-500/15 text-amber-500' :
-                      tx.paymentMethod === 'BOLETO' ? 'bg-purple-500/15 text-purple-500' : 'bg-blue-500/15 text-blue-500'
-                    }`}>
-                      {tx.paymentMethod}
-                    </span>
-                  </td>
-                  <td className="text-right font-bold text-brand-emerald font-mono">{DecimalMath.formatBRL(tx.netTotal)}</td>
-                </tr>
-              ))}
-              {biFilteredTx.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="text-center py-8 text-slate-500 font-mono">
-                    Nenhuma transação financeira processada pelo terminal no intervalo selecionado.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-        </>
-      )}
-
-    </div>
-  ) : (
-    /* ==================== HISTÓRICO DE ATAS DE CAIXA (SISTEMA INTEGRAL) ==================== */
-    <div className="space-y-6 animate-fade-in font-sans transition-all text-slate-100">
-      
-      {/* 1. RESTRIÇÃO DE AUTORIZAÇÃO DE PAPEL (Master, Gerente e Financeiro) */}
-      {!hasCrudAccess ? (
-        <div className="bg-brand-navy-card border border-red-500/30 p-8 rounded-2xl shadow-lg text-center space-y-4 max-w-lg mx-auto my-12">
-          <div className="mx-auto bg-red-500/10 text-red-500 w-16 h-16 rounded-full flex items-center justify-center">
-            <Lock className="w-8 h-8" />
-          </div>
-          <h3 className="font-display font-bold text-lg text-slate-100">Acesso Restrito ao Histórico</h3>
-          <p className="text-xs text-slate-400 leading-relaxed">
-            Esta seção de governança e auditoria retroativa está limitada aos usuários com atribuição de nível <span className="text-brand-emerald font-bold">Master</span>, <span className="text-brand-emerald font-bold">Gerente</span> ou <span className="text-brand-emerald font-bold">Financeiro</span>. Por favor, entre em contato com a administração da Marks Systems se achar que isto é um engano.
-          </p>
-        </div>
-      ) : (
-        <>
-          {/* 1. FILTROS DE BUSCA DE ALTA PERFORMANCE */}
-          <div className="bg-brand-navy-card border border-brand-navy-bright p-5 rounded-2xl shadow-lg space-y-4">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-brand-navy-bright/60 pb-3">
-              <div>
-                <h3 className="font-display font-semibold text-sm text-slate-200 uppercase tracking-wider flex items-center gap-2">
-                  <Clock className="w-4.5 h-4.5 text-brand-emerald" />
-                  Histórico e Consulta de Atas de Caixa
-                </h3>
-                <p className="text-[11px] text-slate-400">Rastreabilidade integral retroativa e conciliação para fiscalização.</p>
-              </div>
-              <div className="flex items-center gap-2 text-xs font-mono bg-brand-navy-deep px-3 py-1.5 rounded-lg border border-brand-navy-bright/60 font-medium">
-                <span className="text-slate-400 uppercase">Total Arquivados:</span>
-                <span className="font-bold text-brand-emerald">{historicalClosings.length} Atas</span>
-              </div>
-            </div>
-
-            {/* SELETORES DE ALTA PERFORMANCE */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in">
-              {/* Filtro Período Início */}
-              <div className="space-y-1.5">
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 font-sans" htmlFor="hist-start-date">
-                  Data Inicial (Operacional)
-                </label>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
-                    id="hist-start-date"
-                    type="date"
-                    value={histStartDate}
-                    onChange={(e) => setHistStartDate(e.target.value)}
-                    className="w-full bg-brand-navy-deep border border-brand-navy-bright rounded-xl pl-10 pr-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-emerald font-mono"
-                  />
+                  <button
+                    onClick={() => {
+                      // Action helper: provide simulated test closure trigger
+                      const simulatedDivergentReport = {
+                        terminalId: 'Passo Fundo - Caixa 01',
+                        dataOperacional: new Date().toLocaleDateString('pt-BR'),
+                        horarioAbertura: '12:00:00',
+                        horarioFechamento: new Date().toLocaleTimeString('pt-BR'),
+                        usuarioMaster: rlsSession.email || 'operador.balcao@marks.com',
+                        fundoTroco: caixaState.fundoTroco || '150.00',
+                        entradasDinheiro: '110.00',
+                        entradasPix: '50.00',
+                        entradasCredito: '0.00',
+                        entradasDebito: '0.00',
+                        entradasBoleto: '0.00',
+                        reforcos: '0.00',
+                        retiradas: '0.00',
+                        saldoEsperado: '260.00',
+                        saldoInformado: '240.00', // -R$ 20.00 divergence!
+                        divergencia: '-20.00',
+                        status: 'Quebra de Caixa',
+                        particularQty: 2,
+                        particularTotal: '160.00',
+                        b2bQty: 1,
+                        b2bTotal: '100.00'
+                      };
+                      const stored = localStorage.getItem('marks_closing_reports') || '[]';
+                      const parsed = JSON.parse(stored);
+                      parsed.unshift(simulatedDivergentReport);
+                      localStorage.setItem('marks_closing_reports', JSON.stringify(parsed));
+                      // Trigger app alert reload
+                      window.dispatchEvent(new Event('storage'));
+                      addToastLocal('Simulação Concluída', 'Divergência registrada com sucesso.');
+                      // Quick force component redraw by toggling active element state
+                      setActiveDateFilter('HOJE');
+                    }}
+                    className="text-[9px] uppercase font-mono font-bold px-2.5 py-1.5 bg-brand-navy-deep hover:bg-brand-navy-bright border border-brand-navy-bright/70 hover:border-brand-emerald text-brand-emerald rounded-lg transition-all cursor-pointer"
+                  >
+                    Simular Divergência de Turno (Para Auditoria)
+                  </button>
                 </div>
-              </div>
 
-              {/* Filtro Período Fim */}
-              <div className="space-y-1.5">
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 font-sans" htmlFor="hist-end-date">
-                  Data Final (Operacional)
-                </label>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
-                    id="hist-end-date"
-                    type="date"
-                    value={histEndDate}
-                    onChange={(e) => setHistEndDate(e.target.value)}
-                    className="w-full bg-brand-navy-deep border border-brand-navy-bright rounded-xl pl-10 pr-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-emerald font-mono"
-                  />
-                </div>
-              </div>
-
-              {/* Filtro Operador */}
-              <div className="space-y-1.5">
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 font-sans" htmlFor="hist-operator-select">
-                  Operador do Turno
-                </label>
-                <select
-                  id="hist-operator-select"
-                  value={filterOperatorEmail}
-                  onChange={(e) => setFilterOperatorEmail(e.target.value)}
-                  className="w-full bg-brand-navy-deep border border-brand-navy-bright rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-emerald font-sans cursor-pointer"
-                >
-                  <option value="ALL">Visualizar Todos Operadores</option>
-                  {uniqueOperators.map((email) => (
-                    <option key={email} value={email}>{email}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Filtro Terminal ID */}
-              <div className="space-y-1.5">
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 font-sans" htmlFor="hist-terminal-select">
-                  Terminal ID (Canal)
-                </label>
-                <select
-                  id="hist-terminal-select"
-                  value={filterTerminalId}
-                  onChange={(e) => setFilterTerminalId(e.target.value)}
-                  className="w-full bg-brand-navy-deep border border-brand-navy-bright rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-emerald font-sans cursor-pointer"
-                >
-                  <option value="ALL">Visualizar Todos Terminais</option>
-                  {uniqueTerminals.map((term) => (
-                    <option key={term} value={term}>{term}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Quick Reset Controls */}
-            <div className="flex justify-end pt-2">
-              <button
-                onClick={() => {
-                  setHistStartDate('2026-06-12');
-                  setHistEndDate('2026-06-13');
-                  setFilterOperatorEmail('ALL');
-                  setFilterTerminalId('ALL');
-                }}
-                className="text-xs text-brand-emerald font-semibold uppercase hover:underline flex items-center gap-1.5 cursor-pointer font-sans"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                Limpar Todos Filtros Retroativos
-              </button>
-            </div>
-          </div>
-
-          {/* 2. TABELA DE RESULTADOS HISTÓRICOS */}
-          <div className="bg-brand-navy-card border border-brand-navy-bright rounded-2xl shadow-lg overflow-hidden">
-            <div className="p-5 border-b border-brand-navy-bright flex justify-between items-center bg-brand-navy-card">
-              <div className="font-sans">
-                <h4 className="font-bold text-xs uppercase tracking-wider text-slate-300">Atas de Fechamento Registradas no Banco</h4>
-                <p className="text-[10px] text-slate-400">Exibindo registros conciliados no filtro ativo.</p>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto w-full">
-              <table className="w-full text-xs text-left">
-                <thead>
-                  <tr className="border-b border-brand-navy-bright text-slate-400 uppercase font-sans tracking-wide text-[10px] bg-brand-navy-deep/40">
-                    <th className="py-3 px-4 font-bold text-slate-400">Data Operacional / Fim</th>
-                    <th className="py-3 px-4 font-bold text-slate-400">Terminal & Operador</th>
-                    <th className="py-3 px-4 text-center font-bold text-slate-400">Resultado Auditoria</th>
-                    <th className="py-3 px-4 font-bold text-slate-400">Garantia / Hash</th>
-                    <th className="py-3 px-4 text-right font-bold text-slate-400">Ações</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-brand-navy-bright/40 font-sans">
-                  {filteredClosings.map((c: any, index: number) => {
-                    const isBatido = DecimalMath.toCents(c.divergencia) === 0;
-                    const fullHash = generateHash(c);
-                    const truncatedHash = fullHash.slice(0, 15) + '...';
-
-                    return (
-                      <tr key={index} className="hover:bg-brand-navy-deep/20 transition-colors text-slate-300">
-                        {/* Data e hora */}
-                        <td className="py-3.5 px-4 font-mono">
-                          <span className="font-bold text-slate-100 block">{c.dataOperacional}</span>
-                          <span className="text-[10px] text-slate-500 block">Fechado às {c.horarioFechamento}</span>
-                        </td>
-
-                        {/* Terminal e Operador */}
-                        <td className="py-3.5 px-4">
-                          <span className="font-semibold text-slate-200 block text-[11px]">{c.terminalId}</span>
-                          <span className="text-[10px] text-slate-400 block font-mono font-medium">{c.usuarioMaster}</span>
-                        </td>
-
-                        {/* Auditoria Status */}
-                        <td className="py-3.5 px-4 text-center font-mono">
-                          {isBatido ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-emerald/15 text-brand-emerald font-bold border border-brand-emerald/20 text-[10px]">
-                              <span className="w-1.5 h-1.5 rounded-full bg-brand-emerald animate-pulse"></span>
-                              R$ 0,00 - Batido
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/15 text-red-400 font-bold border border-red-500/20 text-[10px]">
-                              <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse"></span>
-                              {parseFloat(c.divergencia) > 0 ? '+' : ''}{DecimalMath.formatBRL(c.divergencia)} — {c.status || 'Divergente'}
-                            </span>
-                          )}
-                        </td>
-
-                        {/* Hash */}
-                        <td className="py-3.5 px-4 font-mono text-[10px] text-slate-400">
-                          <div className="flex items-center gap-1.5" title={fullHash}>
-                            <Lock className="w-3 h-3 text-brand-emerald/70 flex-shrink-0" />
-                            <span className="text-slate-400">{truncatedHash}</span>
-                          </div>
-                        </td>
-
-                        {/* Ações */}
-                        <td className="py-3.5 px-4 text-right">
-                          <button
-                            onClick={() => setViewHistoryAta(c)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-emerald hover:bg-emerald-400 text-brand-navy-deep font-bold font-sans text-[11px] rounded-lg transition-colors cursor-pointer shadow-sm hover:shadow-brand-emerald/10 uppercase"
-                          >
-                            <Printer className="w-3.5 h-3.5" />
-                            Reemitir Ata em PDF
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-
-                  {filteredClosings.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="text-center py-12 text-slate-500 font-mono">
-                        Nenhum caixa encerrado foi encontrado com os filtros selecionados.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-
-        </>
-      )}
-
-      {/* 4. MODAL DETALHADO DE REEMISSÃO DE ATA HISTÓRICA */}
-      {viewHistoryAta && (
-        <div className="fixed inset-0 z-[100] overflow-y-auto bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 md:p-8 animate-fade-in font-sans">
-          
-          {/* Inner scroll container layout */}
-          <div className="bg-brand-navy-deep max-w-4xl w-full rounded-2xl border border-brand-navy-bright shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            
-            {/* Header controls inside modal */}
-            <div className="p-5 border-b border-brand-navy-bright bg-brand-navy-card flex items-center justify-between">
-              <div>
-                <h3 className="font-display font-semibold text-xs uppercase tracking-wider text-slate-300 flex items-center gap-2">
-                  <Printer className="w-4 h-4 text-brand-emerald" />
-                  REEMISSÃO RETROATIVA DE ATA DE ENCERRAMENTO E AUDITORIA
-                </h3>
-                <p className="text-[10px] text-slate-400">Visualização de segurança idêntica ao timbrado da Marks Systems CRVA 0018.</p>
-              </div>
-              
-              <button 
-                onClick={() => setViewHistoryAta(null)}
-                className="p-1.5 px-3 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg cursor-pointer font-sans"
-              >
-                Fechar Painel (Esc)
-              </button>
-            </div>
-
-            {/* Document Simulator Body - aesthetically stunning white sheet for formal printing */}
-            <div className="p-6 md:p-12 overflow-y-auto flex-1 bg-white text-slate-900 font-sans space-y-6">
-              
-              {/* Header timbrado Marks Systems */}
-              <div className="border-b-4 border-emerald-500 pb-4 text-center space-y-1">
-                <h1 className="font-sans font-extrabold text-lg uppercase tracking-tight text-slate-900">
-                  Marks Systems - Passo Fundo/RS
-                </h1>
-                <p className="text-xs font-bold text-slate-600">
-                  MARCO REGULATÓRIO INTERNO E GOVERNANÇA DE REPASSES
-                </p>
-                <div className="text-[10px] bg-slate-100 text-slate-700 py-1.5 px-2.5 rounded font-mono inline-block font-bold">
-                  2ª VIA DE SEGURANÇA REEMITIDA RETROATIVAMENTE PARA GOVERNANÇA E AUDITORIA FISCAL
-                </div>
-              </div>
-
-              {/* Identification details */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs border-b border-slate-200 pb-4">
-                <div className="space-y-1.5">
-                  <p><strong className="text-slate-500">Terminal ID:</strong> <span className="font-semibold text-slate-800 font-mono">{viewHistoryAta.terminalId}</span></p>
-                  <p><strong className="text-slate-500">Data Operacional:</strong> <span className="font-bold text-slate-800 font-mono">{viewHistoryAta.dataOperacional}</span></p>
-                  <p><strong className="text-slate-500">Responsável Encerramento:</strong> <span className="font-bold text-slate-800 font-mono">{viewHistoryAta.usuarioMaster}</span></p>
-                </div>
-                <div className="space-y-1.5 md:text-right">
-                  <p><strong className="text-slate-500">Horário Abertura:</strong> <span className="font-mono text-slate-800">{viewHistoryAta.horarioAbertura || '08:00:00'}</span></p>
-                  <p><strong className="text-slate-500">Horário Fechamento:</strong> <span className="font-mono text-slate-800">{viewHistoryAta.horarioFechamento}</span></p>
-                  <p><strong className="text-slate-500">Emissão da Guia:</strong> <span className="font-mono text-slate-500">{new Date().toLocaleString('pt-BR')}</span></p>
-                </div>
-              </div>
-
-              {/* Digital Hash multiline */}
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-mono text-slate-600 relative overflow-hidden bg-gradient-to-r from-slate-50 to-slate-100">
-                <div className="font-bold text-emerald-600 mb-1 flex items-center gap-1.5">
-                  <Lock className="w-3.5 h-3.5" />
-                  ASSINATURA DE SEGURANÇA HASH DIGITAL CONSOLIDADA (INTEGRAL):
-                </div>
-                <p className="break-all leading-normal text-slate-700 select-all font-bold">
-                  {generateHash(viewHistoryAta)}
-                </p>
-              </div>
-
-              {/* Ledger breakdown table */}
-              <div className="space-y-2">
-                <h4 className="text-[11px] font-bold tracking-wider text-slate-500 uppercase font-sans">
-                  Demo de Fluxo e Parâmetros de Caixa Realizados no Dia Operacional
-                </h4>
-                <div className="border border-slate-200 rounded-lg overflow-hidden text-xs">
-                  <table className="w-full text-left">
+                <div className="overflow-x-auto w-full">
+                  <table className="w-full text-xs font-mono">
                     <thead>
-                      <tr className="bg-slate-50 font-bold border-b border-slate-200 text-slate-600">
-                        <th className="p-2.5">Indicador de Caixa</th>
-                        <th className="p-2.5 text-center">Tipo</th>
-                        <th className="p-2.5 text-right font-bold">Valor Financeiro</th>
+                      <tr className="border-b border-brand-navy-bright/60 pb-2.5 text-slate-400">
+                        <th className="text-left font-bold py-2 font-sans text-[11px]">Data / Hora</th>
+                        <th className="text-left font-bold font-sans text-[11px]">Operador Responsável</th>
+                        <th className="text-center font-bold font-sans text-[11px]">Esperado</th>
+                        <th className="text-center font-bold font-sans text-[11px]">Informed (Cego)</th>
+                        <th className="text-center font-bold font-sans text-[11px]">Divergência</th>
+                        <th className="text-center font-bold font-sans text-[11px]">Status Auditoria</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 font-mono text-slate-800">
-                      <tr>
-                        <td className="p-2 text-slate-600 font-sans">Fundo de Troco Inicial de Abertura</td>
-                        <td className="p-2 text-center text-slate-500">[Fundo]</td>
-                        <td className="p-2 text-right text-slate-900 font-semibold">{DecimalMath.formatBRL(viewHistoryAta.fundoTroco)}</td>
-                      </tr>
-                      <tr>
-                        <td className="p-2 text-slate-600 font-sans">(+) Entradas de Caixa em Dinheiro Espécie</td>
-                        <td className="p-2 text-center text-emerald-600 font-bold">(+)</td>
-                        <td className="p-2 text-right text-emerald-700 font-bold">+{DecimalMath.formatBRL(viewHistoryAta.entradasDinheiro)}</td>
-                      </tr>
-                      <tr>
-                        <td className="p-2 text-slate-600 font-sans">(+) Recebimentos via PIX Instantâneo</td>
-                        <td className="p-2 text-center text-emerald-600 font-bold">(+)</td>
-                        <td className="p-2 text-right text-emerald-700 font-bold">+{DecimalMath.formatBRL(viewHistoryAta.entradasPix)}</td>
-                      </tr>
-                      <tr>
-                        <td className="p-2 text-slate-600 font-sans">(+) Recebimentos via Cartão Crédito (POS)</td>
-                        <td className="p-2 text-center text-emerald-600 font-bold">(+)</td>
-                        <td className="p-2 text-right text-emerald-700 font-bold">+{DecimalMath.formatBRL(viewHistoryAta.entradasCredito)}</td>
-                      </tr>
-                      <tr>
-                        <td className="p-2 text-slate-600 font-sans">(+) Recebimentos via Cartão Débito (POS)</td>
-                        <td className="p-2 text-center text-emerald-600 font-bold">(+)</td>
-                        <td className="p-2 text-right text-emerald-700 font-bold">+{DecimalMath.formatBRL(viewHistoryAta.entradasDebito)}</td>
-                      </tr>
-                      <tr>
-                        <td className="p-2 text-slate-600 font-sans">(+) Faturamento Boleto (Prazo B2B)</td>
-                        <td className="p-2 text-center text-slate-500">[Fatur.]</td>
-                        <td className="p-2 text-right text-slate-900 font-semibold">{DecimalMath.formatBRL(viewHistoryAta.entradasBoleto)}</td>
-                      </tr>
-                      <tr>
-                        <td className="p-2 text-slate-600 font-sans">(+) Reforços / Aportes Realizados</td>
-                        <td className="p-2 text-center text-emerald-600 font-bold">(+)</td>
-                        <td className="p-2 text-right text-emerald-700 font-bold">+{DecimalMath.formatBRL(viewHistoryAta.reforcos)}</td>
-                      </tr>
-                      <tr>
-                        <td className="p-2 text-slate-600 font-sans">(-) Sangrias Realizadas</td>
-                        <td className="p-2 text-center text-red-650 text-red-600 font-bold">(-)</td>
-                        <td className="p-2 text-right text-red-700 font-bold">-{DecimalMath.formatBRL(viewHistoryAta.retiradas)}</td>
-                      </tr>
-                      
-                      {/* Expected vs physical details */}
-                      <tr className="bg-slate-50 border-t border-slate-200">
-                        <td className="p-2.5 font-sans font-bold text-slate-700">SALDO GAVETA ESPERADO</td>
-                        <td></td>
-                        <td className="p-2.5 text-right font-bold text-slate-950 font-mono">{DecimalMath.formatBRL(viewHistoryAta.saldoEsperado)}</td>
-                      </tr>
-                      <tr className="bg-slate-50">
-                        <td className="p-2.5 font-sans font-bold text-slate-700">CONTAGEM FÍSICA DECLARADA</td>
-                        <td></td>
-                        <td className="p-2.5 text-right font-bold text-slate-950 font-mono">{DecimalMath.formatBRL(viewHistoryAta.saldoInformado)}</td>
-                      </tr>
+                    <tbody className="divide-y divide-brand-navy-bright/30">
+                      {historicalClosings.map((c: any, index: number) => {
+                        const isDivergent = parseFloat(c.divergencia) !== 0;
+                        return (
+                          <tr key={index} className="hover:bg-brand-navy-deep/40 transition-colors text-slate-300">
+                            <td className="py-3 font-mono font-medium text-slate-400">
+                              {c.dataOperacional} <span className="text-[10px] text-slate-600 font-sans block">{c.horarioFechamento}</span>
+                            </td>
+                            <td className="align-middle">
+                              <span className="font-bold text-slate-200">{c.usuarioMaster}</span>
+                              <span className="text-[9px] text-slate-500 font-mono block uppercase">{c.terminalId || 'Caixa 01'}</span>
+                            </td>
+                            <td className="text-center py-3 font-mono align-middle">
+                              {DecimalMath.formatBRL(c.saldoEsperado)}
+                            </td>
+                            <td className="text-center py-3 font-mono align-middle">
+                              {DecimalMath.formatBRL(c.saldoInformado)}
+                            </td>
+                            <td className={`text-center py-3 font-mono font-bold align-middle ${isDivergent ? 'text-red-400 animate-pulse' : 'text-slate-400 font-normal'
+                              }`}>
+                              {DecimalMath.formatBRL(c.divergencia)}
+                            </td>
+                            <td className="text-center py-3 align-middle">
+                              <span className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${c.status === 'Conciliado' || c.status === 'Livre' || !isDivergent
+                                  ? 'bg-brand-emerald/10 text-brand-emerald'
+                                  : 'bg-red-500/10 text-red-400'
+                                }`}>
+                                {c.status || 'Conferência Cega'}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
               </div>
 
-              {/* RASTRO DE OPERADORES & TRANSIÇÕES OPERACIONAIS */}
-              <div className="space-y-2">
-                <h4 className="text-[11px] font-bold tracking-wider text-slate-500 uppercase font-sans">
-                  3. Histórico de Transição de Controles & Almoço (Lunch Rotation Auditoria)
+              {/* 6. TABELA DE FEED DE LOGS DIÁRIOS AO VIVO */}
+              <div className="bg-brand-navy-card p-5 border border-brand-navy-bright rounded-2xl shadow-lg">
+                <h4 className="font-display font-semibold text-xs text-slate-200 uppercase tracking-wider mb-4 flex items-center gap-2">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-emerald opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-emerald"></span>
+                  </span>
+                  Logs Diários: Feed de Atendimentos do Caixa (Tempo Real - D+0)
                 </h4>
-                <div className="border border-slate-200 rounded-lg p-4 bg-slate-50 text-slate-800">
-                  {viewHistoryAta.timeline && viewHistoryAta.timeline.length > 0 ? (
-                    <div className="space-y-3 relative before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-300">
-                      {viewHistoryAta.timeline.map((evt: any, idx: number) => (
-                        <div key={idx} className="relative pl-6 text-xs">
-                          <span className="absolute left-[5px] top-[5px] w-2 h-2 rounded-full bg-emerald-500 ring-4 ring-slate-50"></span>
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                            <span className="font-bold text-slate-800">{evt.action}</span>
-                            <span className="font-mono text-[10px] text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold">
-                              {evt.timestamp}
+                <div className="overflow-x-auto w-full">
+                  <table className="w-full text-xs font-mono">
+                    <thead>
+                      <tr className="border-b border-brand-navy-bright/60 pb-2.5 text-slate-400">
+                        <th className="text-left font-bold py-2 font-sans text-[11px]">Friendly ID</th>
+                        <th className="text-left font-bold font-sans text-[11px]">Hora / Data</th>
+                        <th className="text-left font-bold font-sans text-[11px]">Operador</th>
+                        <th className="text-left font-bold font-sans text-[11px]">Cliente Beneficiário</th>
+                        <th className="text-center font-bold font-sans text-[11px]">Canal</th>
+                        <th className="text-center font-bold font-sans text-[11px]">Método</th>
+                        <th className="text-right font-bold font-sans text-[11px]">Valor Líquido</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-brand-navy-bright/35">
+                      {biFilteredTx.map(tx => (
+                        <tr key={tx.id} className="hover:bg-brand-navy-deep/40 transition-colors text-slate-300">
+                          <td className="py-2.5 text-slate-400 font-mono font-semibold">{tx.sequenceId}</td>
+                          <td>
+                            <span className="font-mono text-slate-300 block">{new Date(tx.timestamp).toLocaleTimeString('pt-BR')}</span>
+                            <span className="text-[9px] text-slate-500 font-mono font-normal">{new Date(tx.timestamp).toLocaleDateString('pt-BR')}</span>
+                          </td>
+                          <td className="text-slate-300 font-medium">{tx.createdBy.userName}</td>
+                          <td className="font-bold text-slate-100">{tx.clientName}</td>
+                          <td className="text-center font-bold text-brand-emerald text-[9px] uppercase tracking-wide">Passo Fundo</td>
+                          <td className="text-center">
+                            <span className={`px-2 py-0.5 rounded text-[9px] font-bold font-mono ${tx.paymentMethod === 'PIX' ? 'bg-brand-emerald/15 text-brand-emerald' :
+                                tx.paymentMethod === 'CASH' ? 'bg-amber-500/15 text-amber-500' :
+                                  tx.paymentMethod === 'BOLETO' ? 'bg-purple-500/15 text-purple-500' : 'bg-blue-500/15 text-blue-500'
+                              }`}>
+                              {tx.paymentMethod}
                             </span>
-                          </div>
-                          <p className="text-[11px] text-slate-600 mt-1">
-                            {evt.details} — <span className="font-semibold text-slate-700">{evt.operadorName} ({evt.operadorEmail})</span>
-                          </p>
-                        </div>
+                          </td>
+                          <td className="text-right font-bold text-brand-emerald font-mono">{DecimalMath.formatBRL(tx.netTotal)}</td>
+                        </tr>
                       ))}
+                      {biFilteredTx.length === 0 && (
+                        <tr>
+                          <td colSpan={7} className="text-center py-8 text-slate-500 font-mono">
+                            Nenhuma transação financeira processada pelo terminal no intervalo selecionado.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
+
+        </div>
+      ) : (
+        /* ==================== HISTÓRICO DE ATAS DE CAIXA (SISTEMA INTEGRAL) ==================== */
+        <div className="space-y-6 animate-fade-in font-sans transition-all text-slate-100">
+
+          {/* 1. RESTRIÇÃO DE AUTORIZAÇÃO DE PAPEL (Master, Gerente e Financeiro) */}
+          {!hasCrudAccess ? (
+            <div className="bg-brand-navy-card border border-red-500/30 p-8 rounded-2xl shadow-lg text-center space-y-4 max-w-lg mx-auto my-12">
+              <div className="mx-auto bg-red-500/10 text-red-500 w-16 h-16 rounded-full flex items-center justify-center">
+                <Lock className="w-8 h-8" />
+              </div>
+              <h3 className="font-display font-bold text-lg text-slate-100">Acesso Restrito ao Histórico</h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Esta seção de governança e auditoria retroativa está limitada aos usuários com atribuição de nível <span className="text-brand-emerald font-bold">Master</span>, <span className="text-brand-emerald font-bold">Gerente</span> ou <span className="text-brand-emerald font-bold">Financeiro</span>. Por favor, entre em contato com a administração da Marks Systems se achar que isto é um engano.
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* 1. FILTROS DE BUSCA DE ALTA PERFORMANCE */}
+              <div className="bg-brand-navy-card border border-brand-navy-bright p-5 rounded-2xl shadow-lg space-y-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-brand-navy-bright/60 pb-3">
+                  <div>
+                    <h3 className="font-display font-semibold text-sm text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                      <Clock className="w-4.5 h-4.5 text-brand-emerald" />
+                      Histórico e Consulta de Atas de Caixa
+                    </h3>
+                    <p className="text-[11px] text-slate-400">Rastreabilidade integral retroativa e conciliação para fiscalização.</p>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs font-mono bg-brand-navy-deep px-3 py-1.5 rounded-lg border border-brand-navy-bright/60 font-medium">
+                    <span className="text-slate-400 uppercase">Total Arquivados:</span>
+                    <span className="font-bold text-brand-emerald">{historicalClosings.length} Atas</span>
+                  </div>
+                </div>
+
+                {/* SELETORES DE ALTA PERFORMANCE */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in">
+                  {/* Filtro Período Início */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 font-sans" htmlFor="hist-start-date">
+                      Data Inicial (Operacional)
+                    </label>
+                    <div className="relative">
+                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input
+                        id="hist-start-date"
+                        type="date"
+                        value={histStartDate}
+                        onChange={(e) => setHistStartDate(e.target.value)}
+                        className="w-full bg-brand-navy-deep border border-brand-navy-bright rounded-xl pl-10 pr-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-emerald font-mono"
+                      />
                     </div>
-                  ) : (
-                    <p className="text-slate-500 italic text-[11px] text-center">Nenhum rastro de operador recuperado para este caixa.</p>
-                  )}
+                  </div>
+
+                  {/* Filtro Período Fim */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 font-sans" htmlFor="hist-end-date">
+                      Data Final (Operacional)
+                    </label>
+                    <div className="relative">
+                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input
+                        id="hist-end-date"
+                        type="date"
+                        value={histEndDate}
+                        onChange={(e) => setHistEndDate(e.target.value)}
+                        className="w-full bg-brand-navy-deep border border-brand-navy-bright rounded-xl pl-10 pr-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-emerald font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Filtro Operador */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 font-sans" htmlFor="hist-operator-select">
+                      Operador do Turno
+                    </label>
+                    <select
+                      id="hist-operator-select"
+                      value={filterOperatorEmail}
+                      onChange={(e) => setFilterOperatorEmail(e.target.value)}
+                      className="w-full bg-brand-navy-deep border border-brand-navy-bright rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-emerald font-sans cursor-pointer"
+                    >
+                      <option value="ALL">Visualizar Todos Operadores</option>
+                      {uniqueOperators.map((email) => (
+                        <option key={email} value={email}>{email}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Filtro Terminal ID */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 font-sans" htmlFor="hist-terminal-select">
+                      Terminal ID (Canal)
+                    </label>
+                    <select
+                      id="hist-terminal-select"
+                      value={filterTerminalId}
+                      onChange={(e) => setFilterTerminalId(e.target.value)}
+                      className="w-full bg-brand-navy-deep border border-brand-navy-bright rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-emerald font-sans cursor-pointer"
+                    >
+                      <option value="ALL">Visualizar Todos Terminais</option>
+                      {uniqueTerminals.map((term) => (
+                        <option key={term} value={term}>{term}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Quick Reset Controls */}
+                <div className="flex justify-end pt-2">
+                  <button
+                    onClick={() => {
+                      setHistStartDate('2026-06-12');
+                      setHistEndDate('2026-06-13');
+                      setFilterOperatorEmail('ALL');
+                      setFilterTerminalId('ALL');
+                    }}
+                    className="text-xs text-brand-emerald font-semibold uppercase hover:underline flex items-center gap-1.5 cursor-pointer font-sans"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    Limpar Todos Filtros Retroativos
+                  </button>
                 </div>
               </div>
 
-              {/* AUDITORIA DE PARIDADE E CONCILIAÇÃO FINAL */}
-              <div className="space-y-2">
-                <h4 className="text-[11px] font-bold tracking-wider text-slate-500 uppercase font-sans">
-                  4. Auditoria de Paridade e Conciliação Final
-                </h4>
-                {DecimalMath.toCents(viewHistoryAta.divergencia) === 0 ? (
-                  <div className="bg-emerald-50 border border-emerald-300 p-3.5 rounded-lg text-xs text-emerald-800 font-medium">
-                    <p className="font-bold text-emerald-900 mb-1">CONCILIADO COM 100% PARIDADE FISCAL (SEM DIVERGÊNCIAS)</p>
-                    <p className="text-[11px]">Auditado retroativamente de forma digital sem identificar inconsistências com os sistemas operacionais auxiliares no dia de operação.</p>
+              {/* 2. TABELA DE RESULTADOS HISTÓRICOS */}
+              <div className="bg-brand-navy-card border border-brand-navy-bright rounded-2xl shadow-lg overflow-hidden">
+                <div className="p-5 border-b border-brand-navy-bright flex justify-between items-center bg-brand-navy-card">
+                  <div className="font-sans">
+                    <h4 className="font-bold text-xs uppercase tracking-wider text-slate-300">Atas de Fechamento Registradas no Banco</h4>
+                    <p className="text-[10px] text-slate-400">Exibindo registros conciliados no filtro ativo.</p>
                   </div>
-                ) : (
-                  <div className="bg-red-50 border border-red-300 p-3.5 rounded-lg text-xs text-red-800 font-medium">
-                    <p className="font-bold text-red-950 mb-1 font-sans">DIVERGÊNCIA APURADA: {viewHistoryAta.status === 'Quebra de Caixa' ? 'QUEBRA' : 'SOBRA'} DE {DecimalMath.formatBRL(viewHistoryAta.divergencia)}</p>
-                    <p className="text-[11px] font-sans">Inconsistência física identificada entre as leituras digitais consolidadas e os valores recolhidos. Evento anotado para desfecho administrativo.</p>
-                  </div>
-                )}
+                </div>
+
+                <div className="overflow-x-auto w-full">
+                  <table className="w-full text-xs text-left">
+                    <thead>
+                      <tr className="border-b border-brand-navy-bright text-slate-400 uppercase font-sans tracking-wide text-[10px] bg-brand-navy-deep/40">
+                        <th className="py-3 px-4 font-bold text-slate-400">Data Operacional / Fim</th>
+                        <th className="py-3 px-4 font-bold text-slate-400">Terminal & Operador</th>
+                        <th className="py-3 px-4 text-center font-bold text-slate-400">Resultado Auditoria</th>
+                        <th className="py-3 px-4 font-bold text-slate-400">Garantia / Hash</th>
+                        <th className="py-3 px-4 text-right font-bold text-slate-400">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-brand-navy-bright/40 font-sans">
+                      {filteredClosings.map((c: any, index: number) => {
+                        const isBatido = DecimalMath.toCents(c.divergencia) === 0;
+                        const fullHash = generateHash(c);
+                        const truncatedHash = fullHash.slice(0, 15) + '...';
+
+                        return (
+                          <tr key={index} className="hover:bg-brand-navy-deep/20 transition-colors text-slate-300">
+                            {/* Data e hora */}
+                            <td className="py-3.5 px-4 font-mono">
+                              <span className="font-bold text-slate-100 block">{c.dataOperacional}</span>
+                              <span className="text-[10px] text-slate-500 block">Fechado às {c.horarioFechamento}</span>
+                            </td>
+
+                            {/* Terminal e Operador */}
+                            <td className="py-3.5 px-4">
+                              <span className="font-semibold text-slate-200 block text-[11px]">{c.terminalId}</span>
+                              <span className="text-[10px] text-slate-400 block font-mono font-medium">{c.usuarioMaster}</span>
+                            </td>
+
+                            {/* Auditoria Status */}
+                            <td className="py-3.5 px-4 text-center font-mono">
+                              {isBatido ? (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-emerald/15 text-brand-emerald font-bold border border-brand-emerald/20 text-[10px]">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-brand-emerald animate-pulse"></span>
+                                  R$ 0,00 - Batido
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/15 text-red-400 font-bold border border-red-500/20 text-[10px]">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse"></span>
+                                  {parseFloat(c.divergencia) > 0 ? '+' : ''}{DecimalMath.formatBRL(c.divergencia)} — {c.status || 'Divergente'}
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Hash */}
+                            <td className="py-3.5 px-4 font-mono text-[10px] text-slate-400">
+                              <div className="flex items-center gap-1.5" title={fullHash}>
+                                <Lock className="w-3 h-3 text-brand-emerald/70 flex-shrink-0" />
+                                <span className="text-slate-400">{truncatedHash}</span>
+                              </div>
+                            </td>
+
+                            {/* Ações */}
+                            <td className="py-3.5 px-4 text-right">
+                              <button
+                                onClick={() => setViewHistoryAta(c)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-emerald hover:bg-emerald-400 text-brand-navy-deep font-bold font-sans text-[11px] rounded-lg transition-colors cursor-pointer shadow-sm hover:shadow-brand-emerald/10 uppercase"
+                              >
+                                <Printer className="w-3.5 h-3.5" />
+                                Reemitir Ata em PDF
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+
+                      {filteredClosings.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="text-center py-12 text-slate-500 font-mono">
+                            Nenhum caixa encerrado foi encontrado com os filtros selecionados.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
-              {/* Assinaturas físicas do documento */}
-              <div className="pt-8 border-t border-dashed border-slate-300 font-mono text-[10px] text-slate-500">
-                <p className="text-center font-bold mb-8 uppercase text-slate-600 font-sans">
-                  5. Linhas de Chancelas & Assinaturas Físicas Requeridas
+
+            </>
+          )}
+
+          {/* 4. MODAL DETALHADO DE REEMISSÃO DE ATA HISTÓRICA */}
+          {viewHistoryAta && (
+            <div className="fixed inset-0 z-[100] overflow-y-auto bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 md:p-8 animate-fade-in font-sans">
+
+              {/* Inner scroll container layout */}
+              <div className="bg-brand-navy-deep max-w-4xl w-full rounded-2xl border border-brand-navy-bright shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+
+                {/* Header controls inside modal */}
+                <div className="p-5 border-b border-brand-navy-bright bg-brand-navy-card flex items-center justify-between">
+                  <div>
+                    <h3 className="font-display font-semibold text-xs uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                      <Printer className="w-4 h-4 text-brand-emerald" />
+                      REEMISSÃO RETROATIVA DE ATA DE ENCERRAMENTO E AUDITORIA
+                    </h3>
+                    <p className="text-[10px] text-slate-400">Visualização de segurança idêntica ao timbrado da Marks Systems CRVA 0018.</p>
+                  </div>
+
+                  <button
+                    onClick={() => setViewHistoryAta(null)}
+                    className="p-1.5 px-3 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg cursor-pointer font-sans"
+                  >
+                    Fechar Painel (Esc)
+                  </button>
+                </div>
+
+                {/* Document Simulator Body - aesthetically stunning white sheet for formal printing */}
+                <div className="p-6 md:p-12 overflow-y-auto flex-1 bg-white text-slate-900 font-sans space-y-6">
+
+                  {/* Header timbrado Marks Systems */}
+                  <div className="border-b-4 border-emerald-500 pb-4 text-center space-y-1">
+                    <h1 className="font-sans font-extrabold text-lg uppercase tracking-tight text-slate-900">
+                      Marks Systems - Passo Fundo/RS
+                    </h1>
+                    <p className="text-xs font-bold text-slate-600">
+                      MARCO REGULATÓRIO INTERNO E GOVERNANÇA DE REPASSES
+                    </p>
+                    <div className="text-[10px] bg-slate-100 text-slate-700 py-1.5 px-2.5 rounded font-mono inline-block font-bold">
+                      2ª VIA DE SEGURANÇA REEMITIDA RETROATIVAMENTE PARA GOVERNANÇA E AUDITORIA FISCAL
+                    </div>
+                  </div>
+
+                  {/* Identification details */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs border-b border-slate-200 pb-4">
+                    <div className="space-y-1.5">
+                      <p><strong className="text-slate-500">Terminal ID:</strong> <span className="font-semibold text-slate-800 font-mono">{viewHistoryAta.terminalId}</span></p>
+                      <p><strong className="text-slate-500">Data Operacional:</strong> <span className="font-bold text-slate-800 font-mono">{viewHistoryAta.dataOperacional}</span></p>
+                      <p><strong className="text-slate-500">Responsável Encerramento:</strong> <span className="font-bold text-slate-800 font-mono">{viewHistoryAta.usuarioMaster}</span></p>
+                    </div>
+                    <div className="space-y-1.5 md:text-right">
+                      <p><strong className="text-slate-500">Horário Abertura:</strong> <span className="font-mono text-slate-800">{viewHistoryAta.horarioAbertura || '08:00:00'}</span></p>
+                      <p><strong className="text-slate-500">Horário Fechamento:</strong> <span className="font-mono text-slate-800">{viewHistoryAta.horarioFechamento}</span></p>
+                      <p><strong className="text-slate-500">Emissão da Guia:</strong> <span className="font-mono text-slate-500">{new Date().toLocaleString('pt-BR')}</span></p>
+                    </div>
+                  </div>
+
+                  {/* Digital Hash multiline */}
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-mono text-slate-600 relative overflow-hidden bg-gradient-to-r from-slate-50 to-slate-100">
+                    <div className="font-bold text-emerald-600 mb-1 flex items-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5" />
+                      ASSINATURA DE SEGURANÇA HASH DIGITAL CONSOLIDADA (INTEGRAL):
+                    </div>
+                    <p className="break-all leading-normal text-slate-700 select-all font-bold">
+                      {generateHash(viewHistoryAta)}
+                    </p>
+                  </div>
+
+                  {/* Ledger breakdown table */}
+                  <div className="space-y-2">
+                    <h4 className="text-[11px] font-bold tracking-wider text-slate-500 uppercase font-sans">
+                      Demo de Fluxo e Parâmetros de Caixa Realizados no Dia Operacional
+                    </h4>
+                    <div className="border border-slate-200 rounded-lg overflow-hidden text-xs">
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="bg-slate-50 font-bold border-b border-slate-200 text-slate-600">
+                            <th className="p-2.5">Indicador de Caixa</th>
+                            <th className="p-2.5 text-center">Tipo</th>
+                            <th className="p-2.5 text-right font-bold">Valor Financeiro</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 font-mono text-slate-800">
+                          <tr>
+                            <td className="p-2 text-slate-600 font-sans">Fundo de Troco Inicial de Abertura</td>
+                            <td className="p-2 text-center text-slate-500">[Fundo]</td>
+                            <td className="p-2 text-right text-slate-900 font-semibold">{DecimalMath.formatBRL(viewHistoryAta.fundoTroco)}</td>
+                          </tr>
+                          <tr>
+                            <td className="p-2 text-slate-600 font-sans">(+) Entradas de Caixa em Dinheiro Espécie</td>
+                            <td className="p-2 text-center text-emerald-600 font-bold">(+)</td>
+                            <td className="p-2 text-right text-emerald-700 font-bold">+{DecimalMath.formatBRL(viewHistoryAta.entradasDinheiro)}</td>
+                          </tr>
+                          <tr>
+                            <td className="p-2 text-slate-600 font-sans">(+) Recebimentos via PIX Instantâneo</td>
+                            <td className="p-2 text-center text-emerald-600 font-bold">(+)</td>
+                            <td className="p-2 text-right text-emerald-700 font-bold">+{DecimalMath.formatBRL(viewHistoryAta.entradasPix)}</td>
+                          </tr>
+                          <tr>
+                            <td className="p-2 text-slate-600 font-sans">(+) Recebimentos via Cartão Crédito (POS)</td>
+                            <td className="p-2 text-center text-emerald-600 font-bold">(+)</td>
+                            <td className="p-2 text-right text-emerald-700 font-bold">+{DecimalMath.formatBRL(viewHistoryAta.entradasCredito)}</td>
+                          </tr>
+                          <tr>
+                            <td className="p-2 text-slate-600 font-sans">(+) Recebimentos via Cartão Débito (POS)</td>
+                            <td className="p-2 text-center text-emerald-600 font-bold">(+)</td>
+                            <td className="p-2 text-right text-emerald-700 font-bold">+{DecimalMath.formatBRL(viewHistoryAta.entradasDebito)}</td>
+                          </tr>
+                          <tr>
+                            <td className="p-2 text-slate-600 font-sans">(+) Faturamento Boleto (Prazo B2B)</td>
+                            <td className="p-2 text-center text-slate-500">[Fatur.]</td>
+                            <td className="p-2 text-right text-slate-900 font-semibold">{DecimalMath.formatBRL(viewHistoryAta.entradasBoleto)}</td>
+                          </tr>
+                          <tr>
+                            <td className="p-2 text-slate-600 font-sans">(+) Reforços / Aportes Realizados</td>
+                            <td className="p-2 text-center text-emerald-600 font-bold">(+)</td>
+                            <td className="p-2 text-right text-emerald-700 font-bold">+{DecimalMath.formatBRL(viewHistoryAta.reforcos)}</td>
+                          </tr>
+                          <tr>
+                            <td className="p-2 text-slate-600 font-sans">(-) Sangrias Realizadas</td>
+                            <td className="p-2 text-center text-red-650 text-red-600 font-bold">(-)</td>
+                            <td className="p-2 text-right text-red-700 font-bold">-{DecimalMath.formatBRL(viewHistoryAta.retiradas)}</td>
+                          </tr>
+
+                          {/* Expected vs physical details */}
+                          <tr className="bg-slate-50 border-t border-slate-200">
+                            <td className="p-2.5 font-sans font-bold text-slate-700">SALDO GAVETA ESPERADO</td>
+                            <td></td>
+                            <td className="p-2.5 text-right font-bold text-slate-950 font-mono">{DecimalMath.formatBRL(viewHistoryAta.saldoEsperado)}</td>
+                          </tr>
+                          <tr className="bg-slate-50">
+                            <td className="p-2.5 font-sans font-bold text-slate-700">CONTAGEM FÍSICA DECLARADA</td>
+                            <td></td>
+                            <td className="p-2.5 text-right font-bold text-slate-950 font-mono">{DecimalMath.formatBRL(viewHistoryAta.saldoInformado)}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* RASTRO DE OPERADORES & TRANSIÇÕES OPERACIONAIS */}
+                  <div className="space-y-2">
+                    <h4 className="text-[11px] font-bold tracking-wider text-slate-500 uppercase font-sans">
+                      3. Histórico de Transição de Controles & Almoço (Lunch Rotation Auditoria)
+                    </h4>
+                    <div className="border border-slate-200 rounded-lg p-4 bg-slate-50 text-slate-800">
+                      {viewHistoryAta.timeline && viewHistoryAta.timeline.length > 0 ? (
+                        <div className="space-y-3 relative before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-300">
+                          {viewHistoryAta.timeline.map((evt: any, idx: number) => (
+                            <div key={idx} className="relative pl-6 text-xs">
+                              <span className="absolute left-[5px] top-[5px] w-2 h-2 rounded-full bg-emerald-500 ring-4 ring-slate-50"></span>
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                                <span className="font-bold text-slate-800">{evt.action}</span>
+                                <span className="font-mono text-[10px] text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold">
+                                  {evt.timestamp}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-600 mt-1">
+                                {evt.details} — <span className="font-semibold text-slate-700">{evt.operadorName} ({evt.operadorEmail})</span>
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-slate-500 italic text-[11px] text-center">Nenhum rastro de operador recuperado para este caixa.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* AUDITORIA DE PARIDADE E CONCILIAÇÃO FINAL */}
+                  <div className="space-y-2">
+                    <h4 className="text-[11px] font-bold tracking-wider text-slate-500 uppercase font-sans">
+                      4. Auditoria de Paridade e Conciliação Final
+                    </h4>
+                    {DecimalMath.toCents(viewHistoryAta.divergencia) === 0 ? (
+                      <div className="bg-emerald-50 border border-emerald-300 p-3.5 rounded-lg text-xs text-emerald-800 font-medium">
+                        <p className="font-bold text-emerald-900 mb-1">CONCILIADO COM 100% PARIDADE FISCAL (SEM DIVERGÊNCIAS)</p>
+                        <p className="text-[11px]">Auditado retroativamente de forma digital sem identificar inconsistências com os sistemas operacionais auxiliares no dia de operação.</p>
+                      </div>
+                    ) : (
+                      <div className="bg-red-50 border border-red-300 p-3.5 rounded-lg text-xs text-red-800 font-medium">
+                        <p className="font-bold text-red-950 mb-1 font-sans">DIVERGÊNCIA APURADA: {viewHistoryAta.status === 'Quebra de Caixa' ? 'QUEBRA' : 'SOBRA'} DE {DecimalMath.formatBRL(viewHistoryAta.divergencia)}</p>
+                        <p className="text-[11px] font-sans">Inconsistência física identificada entre as leituras digitais consolidadas e os valores recolhidos. Evento anotado para desfecho administrativo.</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Assinaturas físicas do documento */}
+                  <div className="pt-8 border-t border-dashed border-slate-300 font-mono text-[10px] text-slate-500">
+                    <p className="text-center font-bold mb-8 uppercase text-slate-600 font-sans">
+                      5. Linhas de Chancelas & Assinaturas Físicas Requeridas
+                    </p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-4">
+                      {/* Assinatura 1 */}
+                      <div className="flex flex-col items-center">
+                        <div className="w-full border-b border-slate-400 mb-2 min-h-[35px]"></div>
+                        <p className="font-bold text-slate-800 font-sans">OPERADOR DE CAIXA</p>
+                        <p className="text-[9px] text-slate-400 font-sans">Responsável Operacional</p>
+                      </div>
+
+                      {/* Assinatura 2 */}
+                      <div className="flex flex-col items-center">
+                        <div className="w-full border-b border-slate-400 mb-2 min-h-[35px]"></div>
+                        <p className="font-bold text-slate-800 font-sans">SUPERVISOR / GERENTE</p>
+                        <p className="text-[9px] text-slate-400 font-sans">Homologador Marks Systems</p>
+                      </div>
+
+                      {/* Assinatura 3 */}
+                      <div className="flex flex-col items-center">
+                        <div className="w-full border-b border-slate-400 mb-2 min-h-[35px]"></div>
+                        <p className="font-bold text-slate-800 font-sans">CONFERENTE FINANCEIRO</p>
+                        <p className="text-[9px] text-slate-400 font-sans">Auditoria Backoffice</p>
+                      </div>
+                    </div>
+
+                    <div className="pt-8 text-center text-[9px] text-slate-400 border-t border-slate-100 mt-6 leading-relaxed font-sans">
+                      Este documento de reemissão fiscal retroativo segue os padrões exigidos legalmente.
+                      <br />
+                      Chancelado automaticamente pelo sistema de auditoria Marks Systems e gerido por algoritmo criptográfico.
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* Bottom Actions of Modal */}
+                <div className="p-5 border-t border-brand-navy-bright bg-brand-navy-card flex flex-col sm:flex-row gap-3">
+                  <button
+                    onClick={() => reissuePdfDownload(viewHistoryAta)}
+                    className="flex-1 py-3 bg-brand-emerald hover:bg-emerald-400 text-brand-navy-deep font-sans font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition cursor-pointer shadow-lg hover:shadow-brand-emerald/10 uppercase"
+                  >
+                    <Printer className="w-4 h-4" />
+                    Fazer Download do PDF (jsPDF) / Imprimir
+                  </button>
+
+                  <button
+                    onClick={() => setViewHistoryAta(null)}
+                    className="py-3 px-6 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-xl border border-slate-700 transition cursor-pointer font-sans"
+                  >
+                    Fechar Visualização
+                  </button>
+                </div>
+
+              </div>
+            </div>
+          )}
+
+          {/* Local Toast Area for in-app alert feedback (avoiding window.alert in iframe) */}
+          {localToast && (
+            <div className="fixed bottom-6 right-6 z-[110] bg-brand-navy-card border border-brand-emerald/40 p-4 rounded-xl shadow-2xl flex items-start gap-3 animate-fade-in max-w-sm">
+              <div className="p-1 bg-brand-emerald/15 text-brand-emerald rounded-lg">
+                <CheckCircle2 className="w-5 h-5 animate-bounce" />
+              </div>
+              <div className="font-sans">
+                <h5 className="text-xs font-bold text-slate-200 uppercase">{localToast.title}</h5>
+                <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">{localToast.message}</p>
+              </div>
+            </div>
+          )}
+
+          {/* ConfirmModal Customizado Premium */}
+          {confirmModal.isOpen && (
+            <div className="fixed inset-0 z-[130] bg-brand-navy-deep/80 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-brand-navy-card border border-brand-navy-bright/35 p-6 rounded-2xl max-w-sm w-full space-y-5 shadow-2xl animate-fade-in">
+                <div className="flex items-center gap-2.5 pb-3 border-b border-brand-navy-bright/10">
+                  <div className={`p-1.5 rounded-lg ${confirmModal.type === 'danger'
+                      ? 'bg-red-500/10 text-red-400 border border-red-500/20'
+                      : confirmModal.type === 'warning'
+                        ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                        : 'bg-brand-emerald/10 text-brand-emerald border border-brand-emerald/20'
+                    }`}>
+                    <AlertTriangle className="w-5 h-5" />
+                  </div>
+                  <h2 className="text-sm font-bold text-white">{confirmModal.title}</h2>
+                </div>
+
+                <p className="text-xs text-slate-350 leading-relaxed font-sans">
+                  {confirmModal.message}
                 </p>
-                
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-4">
-                  {/* Assinatura 1 */}
-                  <div className="flex flex-col items-center">
-                    <div className="w-full border-b border-slate-400 mb-2 min-h-[35px]"></div>
-                    <p className="font-bold text-slate-800 font-sans">OPERADOR DE CAIXA</p>
-                    <p className="text-[9px] text-slate-400 font-sans">Responsável Operacional</p>
-                  </div>
 
-                  {/* Assinatura 2 */}
-                  <div className="flex flex-col items-center">
-                    <div className="w-full border-b border-slate-400 mb-2 min-h-[35px]"></div>
-                    <p className="font-bold text-slate-800 font-sans">SUPERVISOR / GERENTE</p>
-                    <p className="text-[9px] text-slate-400 font-sans">Homologador Marks Systems</p>
-                  </div>
-
-                  {/* Assinatura 3 */}
-                  <div className="flex flex-col items-center">
-                    <div className="w-full border-b border-slate-400 mb-2 min-h-[35px]"></div>
-                    <p className="font-bold text-slate-800 font-sans">CONFERENTE FINANCEIRO</p>
-                    <p className="text-[9px] text-slate-400 font-sans">Auditoria Backoffice</p>
-                  </div>
-                </div>
-
-                <div className="pt-8 text-center text-[9px] text-slate-400 border-t border-slate-100 mt-6 leading-relaxed font-sans">
-                  Este documento de reemissão fiscal retroativo segue os padrões exigidos legalmente.
-                  <br />
-                  Chancelado automaticamente pelo sistema de auditoria Marks Systems e gerido por algoritmo criptográfico.
+                <div className="flex gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                    className="flex-1 py-2.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-lg transition-all cursor-pointer font-sans"
+                  >
+                    {confirmModal.cancelText || 'Cancelar'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await confirmModal.onConfirm();
+                      } catch (e) {
+                        console.error('Erro na ação de confirmação:', e);
+                      } finally {
+                        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+                      }
+                    }}
+                    className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all shadow-lg cursor-pointer font-sans ${confirmModal.type === 'danger'
+                        ? 'bg-red-500 hover:bg-red-400 text-white shadow-red-500/10'
+                        : confirmModal.type === 'warning'
+                          ? 'bg-amber-500 hover:bg-amber-400 text-brand-navy-deep shadow-amber-500/10'
+                          : 'bg-brand-emerald hover:bg-emerald-400 text-brand-navy-deep shadow-brand-emerald/10'
+                      }`}
+                  >
+                    {confirmModal.confirmText || 'Confirmar'}
+                  </button>
                 </div>
               </div>
-
             </div>
+          )}
 
-            {/* Bottom Actions of Modal */}
-            <div className="p-5 border-t border-brand-navy-bright bg-brand-navy-card flex flex-col sm:flex-row gap-3">
-              <button
-                onClick={() => reissuePdfDownload(viewHistoryAta)}
-                className="flex-1 py-3 bg-brand-emerald hover:bg-emerald-400 text-brand-navy-deep font-sans font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition cursor-pointer shadow-lg hover:shadow-brand-emerald/10 uppercase"
-              >
-                <Printer className="w-4 h-4" />
-                Fazer Download do PDF (jsPDF) / Imprimir
-              </button>
-              
-              <button
-                onClick={() => setViewHistoryAta(null)}
-                className="py-3 px-6 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-xl border border-slate-700 transition cursor-pointer font-sans"
-              >
-                Fechar Visualização
-              </button>
-            </div>
-
-          </div>
-        </div>
-      )}
-
-      {/* Local Toast Area for in-app alert feedback (avoiding window.alert in iframe) */}
-      {localToast && (
-        <div className="fixed bottom-6 right-6 z-[110] bg-brand-navy-card border border-brand-emerald/40 p-4 rounded-xl shadow-2xl flex items-start gap-3 animate-fade-in max-w-sm">
-          <div className="p-1 bg-brand-emerald/15 text-brand-emerald rounded-lg">
-            <CheckCircle2 className="w-5 h-5 animate-bounce" />
-          </div>
-          <div className="font-sans">
-            <h5 className="text-xs font-bold text-slate-200 uppercase">{localToast.title}</h5>
-            <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">{localToast.message}</p>
-          </div>
-        </div>
-      )}
-
-      {/* ConfirmModal Customizado Premium */}
-      {confirmModal.isOpen && (
-        <div className="fixed inset-0 z-[130] bg-brand-navy-deep/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-brand-navy-card border border-brand-navy-bright/35 p-6 rounded-2xl max-w-sm w-full space-y-5 shadow-2xl animate-fade-in">
-            <div className="flex items-center gap-2.5 pb-3 border-b border-brand-navy-bright/10">
-              <div className={`p-1.5 rounded-lg ${
-                confirmModal.type === 'danger' 
-                  ? 'bg-red-500/10 text-red-400 border border-red-500/20' 
-                  : confirmModal.type === 'warning'
-                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                    : 'bg-brand-emerald/10 text-brand-emerald border border-brand-emerald/20'
-              }`}>
-                <AlertTriangle className="w-5 h-5" />
-              </div>
-              <h2 className="text-sm font-bold text-white">{confirmModal.title}</h2>
-            </div>
-            
-            <p className="text-xs text-slate-350 leading-relaxed font-sans">
-              {confirmModal.message}
-            </p>
-
-            <div className="flex gap-3 pt-1">
-              <button 
-                type="button"
-                onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
-                className="flex-1 py-2.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-lg transition-all cursor-pointer font-sans"
-              >
-                {confirmModal.cancelText || 'Cancelar'}
-              </button>
-              <button 
-                type="button"
-                onClick={async () => {
-                  try {
-                    await confirmModal.onConfirm();
-                  } catch (e) {
-                    console.error('Erro na ação de confirmação:', e);
-                  } finally {
-                    setConfirmModal(prev => ({ ...prev, isOpen: false }));
-                  }
-                }}
-                className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all shadow-lg cursor-pointer font-sans ${
-                  confirmModal.type === 'danger'
-                    ? 'bg-red-500 hover:bg-red-400 text-white shadow-red-500/10'
-                    : confirmModal.type === 'warning'
-                      ? 'bg-amber-500 hover:bg-amber-400 text-brand-navy-deep shadow-amber-500/10'
-                      : 'bg-brand-emerald hover:bg-emerald-400 text-brand-navy-deep shadow-brand-emerald/10'
-                }`}
-              >
-                {confirmModal.confirmText || 'Confirmar'}
-              </button>
-            </div>
-          </div>
         </div>
       )}
 
     </div>
-  )}
-
-</div>
-);
+  );
 }
