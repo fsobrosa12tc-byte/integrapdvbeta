@@ -1042,9 +1042,9 @@ export default function FluxoCaixaSection({
       });
     }
 
-    // Obter IDs dos turnos ativos (com status "Aberto") a partir do controle_turnos (historicalClosings)
+    // Obter IDs dos turnos ativos (com status "Aberto" ou status_turno "Aberto") a partir do controle_turnos (historicalClosings)
     const activeTurnoIds = (historicalClosings || [])
-      .filter((c: any) => c.status === 'Aberto')
+      .filter((c: any) => c.status === 'Aberto' || c.status_turno === 'Aberto')
       .map((c: any) => c.id);
 
     // Se todos os turnos estiverem fechados ou bloqueados, força todos os KPIs a zerarem, exceto convênio B2B
@@ -1389,8 +1389,8 @@ export default function FluxoCaixaSection({
           <button
             onClick={() => setSubTab('CONTABIL')}
             className={`pb-2.5 px-1 text-xs font-bold uppercase tracking-wider relative transition-all cursor-pointer ${subTab === 'CONTABIL'
-                ? 'text-brand-emerald border-b-2 border-brand-emerald'
-                : 'text-slate-400 hover:text-slate-200'
+              ? 'text-brand-emerald border-b-2 border-brand-emerald'
+              : 'text-slate-400 hover:text-slate-200'
               }`}
           >
             🗃️ Conciliação & Livro Caixa
@@ -1398,8 +1398,8 @@ export default function FluxoCaixaSection({
           <button
             onClick={() => setSubTab('BI_MASTER')}
             className={`pb-2.5 px-1 text-xs font-bold uppercase tracking-wider relative transition-all cursor-pointer flex items-center gap-1.5 ${subTab === 'BI_MASTER'
-                ? 'text-brand-emerald border-b-2 border-brand-emerald'
-                : 'text-slate-400 hover:text-slate-200'
+              ? 'text-brand-emerald border-b-2 border-brand-emerald'
+              : 'text-slate-400 hover:text-slate-200'
               }`}
           >
             <TrendingUp className="w-4 h-4 text-brand-emerald animate-pulse" />
@@ -1408,8 +1408,8 @@ export default function FluxoCaixaSection({
           <button
             onClick={() => setSubTab('HISTORICO_ATAS')}
             className={`pb-2.5 px-1 text-xs font-bold uppercase tracking-wider relative transition-all cursor-pointer flex items-center gap-1.5 ${subTab === 'HISTORICO_ATAS'
-                ? 'text-brand-emerald border-b-2 border-brand-emerald'
-                : 'text-slate-400 hover:text-slate-200'
+              ? 'text-brand-emerald border-b-2 border-brand-emerald'
+              : 'text-slate-400 hover:text-slate-200'
               }`}
           >
             <Clock className="w-4 h-4 text-brand-emerald" />
@@ -1525,8 +1525,8 @@ export default function FluxoCaixaSection({
                       <td className="py-2.5 px-4">
                         <div className="flex items-center gap-2">
                           <span className={`inline-block w-1.5 h-1.5 rounded-full ${item.type === 'DETRAN' ? 'bg-blue-400' :
-                              item.type === 'HONORARIO' ? 'bg-amber-400' :
-                                item.type === 'CONVÊNIO' ? 'bg-purple-400' : 'bg-brand-emerald'
+                            item.type === 'HONORARIO' ? 'bg-amber-400' :
+                              item.type === 'CONVÊNIO' ? 'bg-purple-400' : 'bg-brand-emerald'
                             }`} />
                           <span className="font-sans font-medium text-slate-100">{item.serviceName || item.name || '—'}</span>
                         </div>
@@ -2588,8 +2588,8 @@ export default function FluxoCaixaSection({
                           <td className="py-2.5 px-4">
                             <div className="flex items-center gap-2">
                               <span className={`inline-block w-1.5 h-1.5 rounded-full ${item.type === 'DETRAN' ? 'bg-blue-400' :
-                                  item.type === 'HONORARIO' ? 'bg-amber-400' :
-                                    item.type === 'CONVÊNIO' ? 'bg-purple-400' : 'bg-brand-emerald'
+                                item.type === 'HONORARIO' ? 'bg-amber-400' :
+                                  item.type === 'CONVÊNIO' ? 'bg-purple-400' : 'bg-brand-emerald'
                                 }`} />
                               <span className="font-sans font-medium text-slate-100">{item.serviceName || item.name || '—'}</span>
                             </div>
@@ -2815,8 +2815,8 @@ export default function FluxoCaixaSection({
                                 }
                               }}
                               className={`p-1 rounded transition ${isCancelled
-                                  ? 'text-slate-600 cursor-not-allowed'
-                                  : 'text-slate-400 hover:text-brand-crimson hover:bg-brand-navy-deep'
+                                ? 'text-slate-600 cursor-not-allowed'
+                                : 'text-slate-400 hover:text-brand-crimson hover:bg-brand-navy-deep'
                                 }`}
                               title={isCancelled ? 'Transação já cancelada.' : 'Estornar / Cancelar'}
                             >
@@ -3007,8 +3007,8 @@ export default function FluxoCaixaSection({
               <button
                 onClick={() => setActiveDateFilter('HOJE')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider font-mono transition-all border cursor-pointer ${activeDateFilter === 'HOJE'
-                    ? 'bg-brand-emerald/15 text-brand-emerald border-brand-emerald/40 shadow-sm'
-                    : 'bg-brand-navy-deep text-slate-400 border-brand-navy-bright/40 hover:text-slate-200 hover:bg-brand-navy-bright/10'
+                  ? 'bg-brand-emerald/15 text-brand-emerald border-brand-emerald/40 shadow-sm'
+                  : 'bg-brand-navy-deep text-slate-400 border-brand-navy-bright/40 hover:text-slate-200 hover:bg-brand-navy-bright/10'
                   }`}
               >
                 Hoje
@@ -3016,8 +3016,8 @@ export default function FluxoCaixaSection({
               <button
                 onClick={() => setActiveDateFilter('ONTEM')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider font-mono transition-all border cursor-pointer ${activeDateFilter === 'ONTEM'
-                    ? 'bg-brand-emerald/15 text-brand-emerald border-brand-emerald/40 shadow-sm'
-                    : 'bg-brand-navy-deep text-slate-400 border-brand-navy-bright/40 hover:text-slate-200 hover:bg-brand-navy-bright/10'
+                  ? 'bg-brand-emerald/15 text-brand-emerald border-brand-emerald/40 shadow-sm'
+                  : 'bg-brand-navy-deep text-slate-400 border-brand-navy-bright/40 hover:text-slate-200 hover:bg-brand-navy-bright/10'
                   }`}
               >
                 Ontem
@@ -3025,8 +3025,8 @@ export default function FluxoCaixaSection({
               <button
                 onClick={() => setActiveDateFilter('7DIAS')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider font-mono transition-all border cursor-pointer ${activeDateFilter === '7DIAS'
-                    ? 'bg-brand-emerald/15 text-brand-emerald border-brand-emerald/40 shadow-sm'
-                    : 'bg-brand-navy-deep text-slate-400 border-brand-navy-bright/40 hover:text-slate-200 hover:bg-brand-navy-bright/10'
+                  ? 'bg-brand-emerald/15 text-brand-emerald border-brand-emerald/40 shadow-sm'
+                  : 'bg-brand-navy-deep text-slate-400 border-brand-navy-bright/40 hover:text-slate-200 hover:bg-brand-navy-bright/10'
                   }`}
               >
                 Últimos 7 Dias
@@ -3034,8 +3034,8 @@ export default function FluxoCaixaSection({
               <button
                 onClick={() => setActiveDateFilter('MES')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider font-mono transition-all border cursor-pointer ${activeDateFilter === 'MES'
-                    ? 'bg-brand-emerald/15 text-brand-emerald border-brand-emerald/40 shadow-sm'
-                    : 'bg-brand-navy-deep text-slate-400 border-brand-navy-bright/40 hover:text-slate-200 hover:bg-brand-navy-bright/10'
+                  ? 'bg-brand-emerald/15 text-brand-emerald border-brand-emerald/40 shadow-sm'
+                  : 'bg-brand-navy-deep text-slate-400 border-brand-navy-bright/40 hover:text-slate-200 hover:bg-brand-navy-bright/10'
                   }`}
               >
                 Mês Atual
@@ -3043,8 +3043,8 @@ export default function FluxoCaixaSection({
               <button
                 onClick={() => setActiveDateFilter('CUSTOM')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider font-mono transition-all border cursor-pointer ${activeDateFilter === 'CUSTOM'
-                    ? 'bg-brand-emerald/15 text-brand-emerald border-brand-emerald/40 shadow-sm'
-                    : 'bg-brand-navy-deep text-slate-400 border-brand-navy-bright/40 hover:text-slate-200 hover:bg-brand-navy-bright/10'
+                  ? 'bg-brand-emerald/15 text-brand-emerald border-brand-emerald/40 shadow-sm'
+                  : 'bg-brand-navy-deep text-slate-400 border-brand-navy-bright/40 hover:text-slate-200 hover:bg-brand-navy-bright/10'
                   }`}
               >
                 Personalizado
@@ -3648,8 +3648,8 @@ export default function FluxoCaixaSection({
                             </td>
                             <td className="text-center py-3 align-middle">
                               <span className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${c.status === 'Conciliado' || c.status === 'Livre' || !isDivergent
-                                  ? 'bg-brand-emerald/10 text-brand-emerald'
-                                  : 'bg-red-500/10 text-red-400'
+                                ? 'bg-brand-emerald/10 text-brand-emerald'
+                                : 'bg-red-500/10 text-red-400'
                                 }`}>
                                 {c.status || 'Conferência Cega'}
                               </span>
@@ -3697,8 +3697,8 @@ export default function FluxoCaixaSection({
                           <td className="text-center font-bold text-brand-emerald text-[9px] uppercase tracking-wide">Passo Fundo</td>
                           <td className="text-center">
                             <span className={`px-2 py-0.5 rounded text-[9px] font-bold font-mono ${tx.paymentMethod === 'PIX' ? 'bg-brand-emerald/15 text-brand-emerald' :
-                                tx.paymentMethod === 'CASH' ? 'bg-amber-500/15 text-amber-500' :
-                                  tx.paymentMethod === 'BOLETO' ? 'bg-purple-500/15 text-purple-500' : 'bg-blue-500/15 text-blue-500'
+                              tx.paymentMethod === 'CASH' ? 'bg-amber-500/15 text-amber-500' :
+                                tx.paymentMethod === 'BOLETO' ? 'bg-purple-500/15 text-purple-500' : 'bg-blue-500/15 text-blue-500'
                               }`}>
                               {tx.paymentMethod}
                             </span>
@@ -4201,10 +4201,10 @@ export default function FluxoCaixaSection({
               <div className="bg-brand-navy-card border border-brand-navy-bright/35 p-6 rounded-2xl max-w-sm w-full space-y-5 shadow-2xl animate-fade-in">
                 <div className="flex items-center gap-2.5 pb-3 border-b border-brand-navy-bright/10">
                   <div className={`p-1.5 rounded-lg ${confirmModal.type === 'danger'
-                      ? 'bg-red-500/10 text-red-400 border border-red-500/20'
-                      : confirmModal.type === 'warning'
-                        ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                        : 'bg-brand-emerald/10 text-brand-emerald border border-brand-emerald/20'
+                    ? 'bg-red-500/10 text-red-400 border border-red-500/20'
+                    : confirmModal.type === 'warning'
+                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                      : 'bg-brand-emerald/10 text-brand-emerald border border-brand-emerald/20'
                     }`}>
                     <AlertTriangle className="w-5 h-5" />
                   </div>
@@ -4235,10 +4235,10 @@ export default function FluxoCaixaSection({
                       }
                     }}
                     className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all shadow-lg cursor-pointer font-sans ${confirmModal.type === 'danger'
-                        ? 'bg-red-500 hover:bg-red-400 text-white shadow-red-500/10'
-                        : confirmModal.type === 'warning'
-                          ? 'bg-amber-500 hover:bg-amber-400 text-brand-navy-deep shadow-amber-500/10'
-                          : 'bg-brand-emerald hover:bg-emerald-400 text-brand-navy-deep shadow-brand-emerald/10'
+                      ? 'bg-red-500 hover:bg-red-400 text-white shadow-red-500/10'
+                      : confirmModal.type === 'warning'
+                        ? 'bg-amber-500 hover:bg-amber-400 text-brand-navy-deep shadow-amber-500/10'
+                        : 'bg-brand-emerald hover:bg-emerald-400 text-brand-navy-deep shadow-brand-emerald/10'
                       }`}
                   >
                     {confirmModal.confirmText || 'Confirmar'}

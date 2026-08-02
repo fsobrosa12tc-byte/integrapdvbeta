@@ -18,8 +18,8 @@ const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL || '',
   import.meta.env.VITE_SUPABASE_ANON_KEY || ''
 );
-import { 
-  Building2, Briefcase, Play, Pause, Activity, 
+import {
+  Building2, Briefcase, Play, Pause, Activity,
   ShoppingBag, HelpCircle, Shield, AlertCircle, Sparkles, CheckCircle, Lock, Coins, DollarSign,
   Printer, FileText
 } from 'lucide-react';
@@ -60,7 +60,7 @@ const generateUUID = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return crypto.randomUUID();
   }
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
     const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
     return v.toString(16);
   });
@@ -126,7 +126,7 @@ export default function App() {
       const { data, error } = await supabase
         .from('controle_turnos')
         .select('terminal_id, status_turno, status, data_operacional, usuario_master, operador_email');
-      
+
       if (error) throw error;
 
       const todayStr = new Date().toISOString().split('T')[0];
@@ -162,7 +162,7 @@ export default function App() {
       if (turnosError) throw turnosError;
 
       // Filtra em memória os turnos abertos
-      const turnosAbertos = (turnosData || []).filter((t: any) => 
+      const turnosAbertos = (turnosData || []).filter((t: any) =>
         t && (t.status === 'Aberto' || t.status_turno === 'Aberto')
       );
 
@@ -176,7 +176,7 @@ export default function App() {
 
       // 2. SELECT na tabela transacoes para buscar transações criadas hoje (D+0)
       const hojeInicio = new Date();
-      hojeInicio.setHours(0,0,0,0);
+      hojeInicio.setHours(0, 0, 0, 0);
       const hojeISO = hojeInicio.toISOString();
 
       // Buscamos transacoes incluindo o campo turno_id
@@ -205,13 +205,13 @@ export default function App() {
         } else {
           // Fallback para dados legados de teste que não possuem turno_id
           const opEmail = (tx.operador_email || '').toLowerCase();
-          const hasClosedTurno = (turnosData || []).some((h: any) => 
+          const hasClosedTurno = (turnosData || []).some((h: any) =>
             (h.status === 'Fechado' || h.status === 'CONCILIADO' || h.status_turno === 'CONCILIADO') &&
             (h.usuario_master || h.operador_email || '').toLowerCase() === opEmail
           );
 
           if (!hasClosedTurno) {
-            matchedTurno = turnosAbertos.find((t: any) => 
+            matchedTurno = turnosAbertos.find((t: any) =>
               t &&
               t.data_operacional &&
               tx.data_operacional &&
@@ -280,7 +280,7 @@ export default function App() {
         const activeStatus = tx.status_conciliacao || 'PAID';
 
         const rawClientName = tx.cliente_nome || 'Particular (Consumidor)';
-        
+
         // Regex extrator do CPF/CNPJ acoplado no nome
         const cpfCnpjMatch = rawClientName.match(/\((?:CPF|CNPJ):\s*([^\)]+)\)/i);
         const clientCpfCnpj = cpfCnpjMatch ? cpfCnpjMatch[1].trim() : '000.000.000-00';
@@ -299,7 +299,7 @@ export default function App() {
         const otherSub = tx.other_subtotal ? parseFloat(tx.other_subtotal).toFixed(2) : brutoVal;
 
         // Reconciliação do relacionamento de turno em memória (procura turno correspondente pelo operador/usuario_master, data operacional e terminal)
-        const matchedTurno = turnosData.find((t: any) => 
+        const matchedTurno = turnosData.find((t: any) =>
           normalizeOperationalDate(t.data_operacional) === normalizeOperationalDate(tx.data_operacional) &&
           (t.usuario_master === tx.operador_email || t.operador_email === tx.operador_email) &&
           t.terminal_id === tx.terminal_id
@@ -343,36 +343,20 @@ export default function App() {
       }));
 
       setClients(clientData.map((c: any) => {
-        let debits = parseFloat(c.saldo_devedor || '0').toFixed(2);
-        let credits = '0.00';
+        // FONTE DE VERDADE: usa saldo_devedor diretamente da DB (atualizado em tempo real por handleAddTransaction)
+        // Não recalcular a partir das transações para evitar conflito de lógica com pagamentos de convênio
+        const finalOutstanding = parseFloat(c.saldo_devedor || '0') < 0 ? '0.00' : parseFloat(c.saldo_devedor || '0').toFixed(2);
 
-        txData.forEach((tx: any) => {
-          if (tx.status_conciliacao !== 'CANCELLED' && tx.status !== 'CANCELLED') {
-            const rawClientName = tx.cliente_nome || 'Particular (Consumidor)';
-            const cpfCnpjMatch = rawClientName.match(/\((?:CPF|CNPJ):\s*([^\)]+)\)/i);
-            const clientCpfCnpj = cpfCnpjMatch ? cpfCnpjMatch[1].trim() : '000.000.000-00';
-            const clientName = rawClientName.replace(/\s*\((?:CPF|CNPJ):[^\)]+\)/i, '').trim();
-
-            const isThisClient = (clientCpfCnpj !== '000.000.000-00' && clientCpfCnpj === c.cnpj) || clientName === c.razao_social;
-
-            if (isThisClient) {
-              const txItems = tx.itens || [];
-              const hasConvenioItem = txItems.some((item: any) => item.type === 'CONVÊNIO');
-              const txVal = parseFloat(tx.valor_liquido || tx.valor_bruto || '0').toFixed(2);
-
-              if (hasConvenioItem) {
-                if (tx.forma_pagamento === 'BOLETO') {
-                  debits = DecimalMath.add(debits, txVal);
-                } else {
-                  credits = DecimalMath.add(credits, txVal);
-                }
-              }
-            }
-          }
-        });
-
-        const netBalance = DecimalMath.sub(debits, credits);
-        const finalOutstanding = parseFloat(netBalance) < 0 ? '0.00' : netBalance;
+        // Conta guias pendentes: qualquer transação BOLETO ativa do despachante (não apenas type CONVÊNIO)
+        const guiasPendentesCount = txData.filter((tx: any) => {
+          if (tx.status_conciliacao === 'CANCELLED' || tx.status === 'CANCELLED') return false;
+          if (tx.forma_pagamento !== 'BOLETO') return false;
+          const rawClientName = tx.cliente_nome || '';
+          const cpfCnpjMatch = rawClientName.match(/\((?:CPF|CNPJ):\s*([^\)]+)\)/i);
+          const clientCpfCnpj = cpfCnpjMatch ? cpfCnpjMatch[1].trim() : '000.000.000-00';
+          const clientName = rawClientName.replace(/\s*\((?:CPF|CNPJ):[^\)]+\)/i, '').trim();
+          return (clientCpfCnpj !== '000.000.000-00' && clientCpfCnpj === c.cnpj) || clientName === c.razao_social;
+        }).length;
 
         return {
           id: c.id,
@@ -380,30 +364,20 @@ export default function App() {
           cpfCnpj: c.cnpj,
           phone: c.telefone,
           outstandingBalance: finalOutstanding,
-          guiasPendentes: 0,
+          guiasPendentes: guiasPendentesCount,
           category: 'Despachante Credenciado',
           status: 'Ativo'
         };
       }));
 
-      // Log de diagnóstico para auditoria (indicando quantos débitos e créditos ele encontrou no banco)
-      let totalDebitos = 0;
-      let totalCreditos = 0;
+      // Log de diagnóstico para auditoria
+      let totalBoletosB2B = 0;
       txData.forEach((tx: any) => {
-        if (tx.status_conciliacao !== 'CANCELLED' && tx.status !== 'CANCELLED') {
-          const txItems = tx.itens || [];
-          const hasConvenioItem = txItems.some((item: any) => item.type === 'CONVÊNIO');
-          if (hasConvenioItem) {
-            const val = parseFloat(tx.valor_liquido || tx.valor_bruto || '0');
-            if (tx.forma_pagamento === 'BOLETO') {
-              totalDebitos += val;
-            } else {
-              totalCreditos += val;
-            }
-          }
+        if (tx.status_conciliacao !== 'CANCELLED' && tx.status !== 'CANCELLED' && tx.forma_pagamento === 'BOLETO') {
+          totalBoletosB2B += parseFloat(tx.valor_liquido || tx.valor_bruto || '0');
         }
       });
-      console.log(`[AUDITORIA CONVÊNIO] Débitos históricos: R$ ${totalDebitos.toFixed(2)} | Créditos históricos: R$ ${totalCreditos.toFixed(2)}`);
+      console.log(`[AUDITORIA CONVÊNIO] Total de lançamentos BOLETO (guias/faturamento B2B): R$ ${totalBoletosB2B.toFixed(2)}`);
 
       setHistoricalClosings(turnosData.map((item: any) => ({
         id: item.id,
@@ -574,7 +548,7 @@ export default function App() {
   const [faturamentoDiaMaster, setFaturamentoDiaMaster] = useState<string>('0.00');
 
   const [showFechamentoModal, setShowFechamentoModal] = useState<boolean>(false);
-  
+
   // Disaster recovery and session lock screen states
   const [isScreenLocked, setIsScreenLocked] = useState<boolean>(() => {
     const session = localStorage.getItem('userSession');
@@ -597,7 +571,7 @@ export default function App() {
   // Shared cash register (Caixa Compartilhado) detection popup states
   const [showAlreadyOpenPopup, setShowAlreadyOpenPopup] = useState<boolean>(false);
   const [alreadyOpenDetails, setAlreadyOpenDetails] = useState<{ name: string; email: string; fundoTroco: string } | null>(null);
-  
+
   // States for lunch rotation operator-switching
   const [showAlternarModal, setShowAlternarModal] = useState<boolean>(false);
   const [alternarEmail, setAlternarEmail] = useState<string>('');
@@ -802,7 +776,7 @@ export default function App() {
   const addToast = (title: string, message: string, type: 'success' | 'info' | 'alert' = 'success') => {
     const id = `toast-${Date.now()}`;
     setToasts(prev => [...prev, { id, title, message, type }]);
-    
+
     // Auto remove toast after 5 seconds
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
@@ -826,10 +800,10 @@ export default function App() {
       // Procura o status do turno atual na lista de fechamentos
       const currentTurnoObj = (historicalClosings || []).find((h: any) => h.id === caixaState.turno_id);
       if (currentTurnoObj) {
-        const isClosedOrBlocked = currentTurnoObj.status === 'Fechado' || 
-                                  currentTurnoObj.status_turno === 'Fechado' || 
-                                  currentTurnoObj.status === 'Bloqueado' || 
-                                  currentTurnoObj.status_turno === 'Bloqueado';
+        const isClosedOrBlocked = currentTurnoObj.status === 'Fechado' ||
+          currentTurnoObj.status_turno === 'Fechado' ||
+          currentTurnoObj.status === 'Bloqueado' ||
+          currentTurnoObj.status_turno === 'Bloqueado';
         if (isClosedOrBlocked) return '0.00';
       }
     }
@@ -856,7 +830,7 @@ export default function App() {
           if (tx.turno_id && activeTurnoIds.includes(tx.turno_id)) {
             isMatched = true;
           } else {
-            isMatched = activeTurnos.some((t: any) => 
+            isMatched = activeTurnos.some((t: any) =>
               normalizeOperationalDate(t.dataOperacional || t.data_operacional) === normalizeOperationalDate(tx.data_operacional || tx.timestamp) &&
               (t.terminalId === tx.terminalId || t.terminal_id === tx.terminalId || t.terminalId === tx.terminal_id || t.terminal_id === tx.terminal_id) &&
               (t.usuarioMaster === tx.operadorEmail || t.operador_email === tx.operadorEmail || t.usuarioMaster === tx.operador_email || t.operador_email === tx.operador_email)
@@ -897,7 +871,7 @@ export default function App() {
         const txTurnoId = tx.turno_id || caixaState?.turno_id;
         const matchedTurnoObj = historicalClosings?.find(h => h.id === txTurnoId);
         const isTurnoAberto = matchedTurnoObj ? (matchedTurnoObj.status === 'Aberto' || matchedTurnoObj.status_turno === 'Aberto') : (caixaState?.status === 'aberto');
-        
+
         return isTurnoAberto;
       })
       .reduce((sum, tx) => {
@@ -913,7 +887,7 @@ export default function App() {
     const calculatedIssqn = newTx.issqn || (parseFloat(newTx.netTotal) * 0.02 / 1.02).toFixed(2);
     const valLiquido = parseFloat(newTx.netTotal).toFixed(2);
     const valBruto = (parseFloat(valLiquido) - parseFloat(calculatedIssqn)).toFixed(2);
-    
+
     let cliNomeCompleto = newTx.clientName;
     if (newTx.clientCpfCnpj && newTx.clientCpfCnpj !== '000.000.000-00') {
       const docLabel = newTx.clientCpfCnpj.length > 14 ? 'CNPJ' : 'CPF';
@@ -941,7 +915,7 @@ export default function App() {
             const d = new Date(caixaState.dataAbertura);
             if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
           }
-        } catch (e) {}
+        } catch (e) { }
         return new Date().toISOString().split('T')[0];
       })(),
       horario: new Date().toLocaleTimeString('pt-BR')
@@ -963,7 +937,7 @@ export default function App() {
       const { error } = await supabase
         .from('transacoes')
         .insert([mappedTx]);
-      
+
       if (error) throw error;
     } catch (err: any) {
       console.warn("Primeira tentativa de inserção falhou. Iniciando contingência...", err);
@@ -976,12 +950,12 @@ export default function App() {
         // Tentativa 2: Remover 'terminal_id'
         const contingencyTx = { ...mappedTx };
         delete contingencyTx.terminal_id;
-        
+
         try {
           const { error: err2 } = await supabase
             .from('transacoes')
             .insert([contingencyTx]);
-          
+
           if (err2) throw err2;
         } catch (err2: any) {
           insertError = err2;
@@ -1102,7 +1076,7 @@ export default function App() {
 
           if (balanceError) throw balanceError;
 
-          setClients(prevClients => 
+          setClients(prevClients =>
             prevClients.map(c => c.id === targetClient.id ? { ...c, outstandingBalance: nextBal } : c)
           );
         }
@@ -1125,7 +1099,7 @@ export default function App() {
 
           if (balanceError) throw balanceError;
 
-          setClients(prevClients => 
+          setClients(prevClients =>
             prevClients.map(c => c.id === targetClient.id ? { ...c, outstandingBalance: safeBal } : c)
           );
         }
@@ -1148,34 +1122,34 @@ export default function App() {
     const uppers = "ABCDEFGHJKLMNPQRSTUVWXYZ";
     const lowers = "abcdefghijkmnopqrstuvwxyz";
     const digits = "23456789";
-    
+
     const arrUppers = uppers.split('');
     const arrLowers = lowers.split('');
     const arrDigits = digits.split('');
-    
+
     const picked: string[] = [];
-    
+
     const draw = (arr: string[]) => {
       const idx = Math.floor(Math.random() * arr.length);
       const char = arr[idx];
       arr.splice(idx, 1);
       return char;
     };
-    
+
     picked.push(draw(arrUppers));
     picked.push(draw(arrLowers));
     picked.push(draw(arrDigits));
-    
+
     const remainingPool = [...arrUppers, ...arrLowers, ...arrDigits];
     for (let i = 0; i < 5; i++) {
       picked.push(draw(remainingPool));
     }
-    
+
     for (let i = picked.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [picked[i], picked[j]] = [picked[j], picked[i]];
     }
-    
+
     return picked.join('');
   };
 
@@ -1267,7 +1241,7 @@ export default function App() {
 
         if (error) throw error;
 
-        setTransactions(prev => 
+        setTransactions(prev =>
           prev.map(tx => tx.id === txId ? { ...tx, status: 'CANCELLED' } : tx)
         );
 
@@ -1290,7 +1264,7 @@ export default function App() {
 
             if (balanceError) throw balanceError;
 
-            setClients(prevClients => 
+            setClients(prevClients =>
               prevClients.map(c => c.id === targetClient.id ? { ...c, outstandingBalance: safeBal } : c)
             );
           }
@@ -1312,7 +1286,7 @@ export default function App() {
 
             if (balanceError) throw balanceError;
 
-            setClients(prevClients => 
+            setClients(prevClients =>
               prevClients.map(c => c.id === targetClient.id ? { ...c, outstandingBalance: nextBal } : c)
             );
           }
@@ -1380,7 +1354,7 @@ export default function App() {
           .select('*')
           .eq('turno_id', caixaState.turno_id)
           .order('criado_em', { ascending: false });
-        
+
         if (dbTxsErr) throw dbTxsErr;
         if (dbTxs) {
           finalShiftTxs = dbTxs.map((tx: any) => {
@@ -1484,7 +1458,7 @@ export default function App() {
             const d = new Date(caixaState.dataAbertura);
             if (!isNaN(d.getTime())) return d.toLocaleTimeString('pt-BR');
           }
-        } catch (e) {}
+        } catch (e) { }
         return '08:00:00';
       })(),
       horarioFechamento: new Date().toLocaleTimeString('pt-BR'),
@@ -1671,10 +1645,10 @@ export default function App() {
 
   const handleExportPDF = () => {
     if (!printReport) return;
-    
+
     // Automatically trigger background reset upon downloading the document
     handleSystemResetOnClosingReport();
-    
+
     // Generate secure hash
     const secureHash = getCurrentSecureHash(printReport);
 
@@ -1756,11 +1730,11 @@ export default function App() {
     // Table drawing
     doc.setDrawColor(203, 213, 225); // slate-300
     doc.setLineWidth(0.3);
-    
+
     // Table header background
     doc.setFillColor(241, 245, 249); // slate-100
     doc.rect(leftMargin, currentY, rightMargin - leftMargin, 6, 'F');
-    
+
     // Table header texts
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(8);
@@ -1999,7 +1973,7 @@ export default function App() {
   if (!userSession || !userSession.email) {
     return (
       <div className="min-h-screen bg-brand-navy-deep text-slate-100 flex flex-col justify-center items-center">
-        <LoginScreen 
+        <LoginScreen
           onLoginSuccess={(session, isMasterUser) => {
             setUserSession(session);
             setIsMaster(isMasterUser);
@@ -2054,14 +2028,13 @@ export default function App() {
             const isAlert = t.type === 'alert';
 
             return (
-              <div 
-                key={t.id} 
+              <div
+                key={t.id}
                 className="bg-brand-navy-card/95 border border-brand-navy-bright rounded-xl p-4 shadow-2xl backdrop-blur-md flex items-start gap-3 text-xs animate-slide-in relative overflow-hidden"
               >
                 {/* Colored left bar */}
-                <div className={`absolute top-0 bottom-0 left-0 w-1 ${
-                  isSuccess ? 'bg-brand-emerald' : isAlert ? 'bg-brand-crimson' : 'bg-brand-accent'
-                }`} />
+                <div className={`absolute top-0 bottom-0 left-0 w-1 ${isSuccess ? 'bg-brand-emerald' : isAlert ? 'bg-brand-crimson' : 'bg-brand-accent'
+                  }`} />
 
                 <div className="p-1 rounded bg-slate-800 text-slate-300">
                   {isSuccess && <CheckCircle className="w-4 h-4 text-brand-emerald" />}
@@ -2099,11 +2072,11 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-brand-navy-deep text-slate-100 flex flex-col selection:bg-brand-emerald selection:text-brand-navy-deep">
-      
+
       {/* 1. Header component */}
-      <Header 
-        currentSession={rlsSession as RlsSession} 
-        onChangeSession={(session) => setRlsSession(session)} 
+      <Header
+        currentSession={rlsSession as RlsSession}
+        onChangeSession={(session) => setRlsSession(session)}
         onLogout={handleLogout}
         caixaState={caixaState}
         isMaster={isMaster}
@@ -2114,7 +2087,7 @@ export default function App() {
 
       {/* Closed Cash Register modal overlay */}
       {caixaState?.status === 'fechado' && !['Master', 'Gerente', 'Financeiro'].includes(rlsSession?.userRole || userSession?.userRole || '') && (
-        <AberturaCaixaModal 
+        <AberturaCaixaModal
           currentSession={rlsSession}
           onLogout={handleLogout}
           onOpenCaixaSuccess={async (fundo, t) => {
@@ -2132,8 +2105,8 @@ export default function App() {
                 .or(`status_turno.eq.Aberto,status.eq.Aberto`);
 
               if (!queryError && activeTurnos) {
-                const matched = activeTurnos.find((at: any) => 
-                  at.usuario_master === opEmail || 
+                const matched = activeTurnos.find((at: any) =>
+                  at.usuario_master === opEmail ||
                   at.terminal_id === terminalId
                 );
 
@@ -2164,7 +2137,7 @@ export default function App() {
                   operadorName: rlsSession?.userName || 'Operador',
                   operadorEmail: opEmail,
                   action: isReused ? 'Reaproveitamento de Caixa' : 'Abertura de Caixa',
-                  details: isReused 
+                  details: isReused
                     ? `Caixa reaberto a partir do turno ativo #${finalTurnoId.slice(0, 8)}.`
                     : `Início de Turno operacional com Fundo de Troco de ${DecimalMath.formatBRL(fundo)}.`
                 }
@@ -2236,180 +2209,176 @@ export default function App() {
       {/* 2. Secondary cockpit utility controls */}
       {!isMobile && (
         <div className={`bg-brand-navy-card/40 border-b border-brand-navy-bright py-2.5 px-4 transition-all duration-300 ${caixaState?.status === 'fechado' && !['Master', 'Gerente', 'Financeiro'].includes(rlsSession?.userRole || userSession?.userRole || '') ? 'blur-sm pointer-events-none opacity-40' : ''}`}>
-        <div className="max-w-7xl mx-auto flex flex-col gap-3">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-            {/* Sub-navigation views switcher */}
-            <div className="flex items-center gap-1.5 p-1 bg-brand-navy-deep border border-brand-navy-bright rounded-lg self-start">
-              <button
-                id="pdv-checkout-tab-btn"
-                onClick={() => setActiveTab('PDV')}
-                className={`px-4 py-1.5 rounded text-xs font-semibold tracking-wide flex items-center gap-2 transition-all cursor-pointer ${
-                  activeTab === 'PDV' 
-                    ? 'bg-brand-emerald text-brand-navy-deep font-bold shadow' 
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <ShoppingBag className="w-4 h-4" />
-                Terminal PDV (Atendimento)
-              </button>
-
-              {isMaster && (
+          <div className="max-w-7xl mx-auto flex flex-col gap-3">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              {/* Sub-navigation views switcher */}
+              <div className="flex items-center gap-1.5 p-1 bg-brand-navy-deep border border-brand-navy-bright rounded-lg self-start">
                 <button
-                  id="fluxo-financeiro-tab-btn"
-                  onClick={() => {
-                    setActiveTab('DASHBOARD');
-                  }}
-                  className={`px-4 py-1.5 rounded text-xs font-semibold tracking-wide flex items-center gap-2 transition-all cursor-pointer ${
-                    activeTab === 'DASHBOARD' 
-                      ? 'bg-brand-emerald text-brand-navy-deep font-bold shadow' 
+                  id="pdv-checkout-tab-btn"
+                  onClick={() => setActiveTab('PDV')}
+                  className={`px-4 py-1.5 rounded text-xs font-semibold tracking-wide flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'PDV'
+                      ? 'bg-brand-emerald text-brand-navy-deep font-bold shadow'
                       : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                  title="Visualizar Fluxo de Caixa"
+                    }`}
                 >
-                  <Activity className="w-4 h-4" />
-                  Painel BI Master Realtime
+                  <ShoppingBag className="w-4 h-4" />
+                  Terminal PDV (Atendimento)
                 </button>
+
+                {isMaster && (
+                  <button
+                    id="fluxo-financeiro-tab-btn"
+                    onClick={() => {
+                      setActiveTab('DASHBOARD');
+                    }}
+                    className={`px-4 py-1.5 rounded text-xs font-semibold tracking-wide flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'DASHBOARD'
+                        ? 'bg-brand-emerald text-brand-navy-deep font-bold shadow'
+                        : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    title="Visualizar Fluxo de Caixa"
+                  >
+                    <Activity className="w-4 h-4" />
+                    Painel BI Master Realtime
+                  </button>
+                )}
+              </div>
+              {/* Turno operational Actions (Sangria, Suprimento e Fechamento) */}
+              {caixaState?.status === 'aberto' && (
+                <div className="flex flex-wrap items-center gap-2 md:self-center">
+                  {/* Aporte (Suprimento) */}
+                  <button
+                    onClick={() => {
+                      setShowSuprimentoForm(!showSuprimentoForm);
+                      setShowSangriaForm(false);
+                      setCashOpValue('');
+                      setCashOpReason('');
+                    }}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg border font-mono transition-all flex items-center gap-1.5 cursor-pointer ${showSuprimentoForm
+                        ? 'bg-brand-emerald/20 border-brand-emerald text-brand-emerald'
+                        : 'bg-brand-navy-deep border-brand-navy-bright/10 text-slate-300 hover:text-slate-100'
+                      }`}
+                  >
+                    <Coins className="w-4 h-4 text-brand-emerald" />
+                    + Reforço
+                  </button>
+
+                  {/* Retirada (Sangria) */}
+                  <button
+                    onClick={() => {
+                      setShowSangriaForm(!showSangriaForm);
+                      setShowSuprimentoForm(false);
+                      setCashOpValue('');
+                      setCashOpReason('');
+                    }}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg border font-mono transition-all flex items-center gap-1.5 cursor-pointer ${showSangriaForm
+                        ? 'bg-red-500/20 border-red-500/80 text-red-400'
+                        : 'bg-brand-navy-deep border-brand-navy-bright/10 text-slate-300 hover:text-slate-100'
+                      }`}
+                  >
+                    <DollarSign className="w-4 h-4 text-red-400" />
+                    - Retirada
+                  </button>
+
+                  {/* Encerrar Turno (Fechamento) */}
+                  <button
+                    onClick={() => setShowFechamentoModal(true)}
+                    className="px-4 py-1.5 bg-red-600 hover:bg-red-500 border border-red-500/10 rounded-lg text-xs font-bold tracking-wide flex items-center gap-2 cursor-pointer transition-all shadow-md shadow-red-950/40"
+                  >
+                    <Lock className="w-4 h-4 animate-pulse text-white" />
+                    Encerrar Turno (Fechamento Cego)
+                  </button>
+
+                </div>
               )}
+
             </div>
-            {/* Turno operational Actions (Sangria, Suprimento e Fechamento) */}
-            {caixaState?.status === 'aberto' && (
-              <div className="flex flex-wrap items-center gap-2 md:self-center">
-                 {/* Aporte (Suprimento) */}
-                <button
-                  onClick={() => {
-                    setShowSuprimentoForm(!showSuprimentoForm);
-                    setShowSangriaForm(false);
-                    setCashOpValue('');
-                    setCashOpReason('');
-                  }}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg border font-mono transition-all flex items-center gap-1.5 cursor-pointer ${
-                    showSuprimentoForm
-                      ? 'bg-brand-emerald/20 border-brand-emerald text-brand-emerald'
-                      : 'bg-brand-navy-deep border-brand-navy-bright/10 text-slate-300 hover:text-slate-100'
-                  }`}
-                >
-                  <Coins className="w-4 h-4 text-brand-emerald" />
-                  + Reforço
-                </button>
 
-                {/* Retirada (Sangria) */}
-                <button
-                  onClick={() => {
-                    setShowSangriaForm(!showSangriaForm);
-                    setShowSuprimentoForm(false);
-                    setCashOpValue('');
-                    setCashOpReason('');
-                  }}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg border font-mono transition-all flex items-center gap-1.5 cursor-pointer ${
-                    showSangriaForm
-                      ? 'bg-red-500/20 border-red-500/80 text-red-400'
-                      : 'bg-brand-navy-deep border-brand-navy-bright/10 text-slate-300 hover:text-slate-100'
-                  }`}
-                >
-                  <DollarSign className="w-4 h-4 text-red-400" />
-                  - Retirada
-                </button>
+            {/* Inline Operation Drawer for Sangria / Suprimento */}
+            {(showSangriaForm || showSuprimentoForm) && (
+              <div className="bg-brand-navy-deep/85 border border-brand-navy-bright/10 p-5 rounded-lg mt-1.5 space-y-3 animate-slide-in max-w-xl">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold tracking-wider text-slate-200">
+                    {showSangriaForm ? '🚨 Lançamento extraordinário de retirada' : '💰 Cadastro de reforço de moedas'}
+                  </span>
+                  <span className="text-[10px] font-mono text-slate-400">
+                    Operador: {rlsSession?.userName || 'Operador'}
+                  </span>
+                </div>
 
-                {/* Encerrar Turno (Fechamento) */}
-                <button
-                  onClick={() => setShowFechamentoModal(true)}
-                  className="px-4 py-1.5 bg-red-600 hover:bg-red-500 border border-red-500/10 rounded-lg text-xs font-bold tracking-wide flex items-center gap-2 cursor-pointer transition-all shadow-md shadow-red-950/40"
-                >
-                  <Lock className="w-4 h-4 animate-pulse text-white" />
-                  Encerrar Turno (Fechamento Cego)
-                </button>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">R$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder="0,00"
+                      value={cashOpValue}
+                      onChange={(e) => setCashOpValue(e.target.value)}
+                      className="w-full bg-brand-navy-card border border-brand-navy-bright rounded-lg py-2 pl-8 pr-3 text-xs font-bold font-mono text-slate-100 focus:outline-none focus:border-brand-emerald"
+                    />
+                  </div>
 
+                  <input
+                    type="text"
+                    placeholder={showSangriaForm ? "Ex: Recolhimento de valores" : "Ex: Troco inicial extra"}
+                    value={cashOpReason}
+                    onChange={(e) => setCashOpReason(e.target.value)}
+                    className="w-full sm:col-span-2 bg-brand-navy-card border border-brand-navy-bright rounded-lg py-2 px-3 text-xs text-slate-200 focus:outline-none focus:border-brand-emerald"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2">
+                  <button
+                    onClick={() => {
+                      setShowSangriaForm(false);
+                      setShowSuprimentoForm(false);
+                    }}
+                    className="px-3 py-1.5 text-[11px] text-slate-400 hover:text-slate-200 font-mono"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!cashOpValue || isNaN(parseFloat(cashOpValue)) || parseFloat(cashOpValue) <= 0) {
+                        alert("Por favor, forneça um valor válido.");
+                        return;
+                      }
+                      if (!cashOpReason.trim()) {
+                        alert("Por favor, preencha a justificativa.");
+                        return;
+                      }
+
+                      if (showSangriaForm) {
+                        handleAddSangria(cashOpValue, cashOpReason);
+                        setShowSangriaForm(false);
+                      } else {
+                        handleAddSuprimento(cashOpValue, cashOpReason);
+                        setShowSuprimentoForm(false);
+                      }
+                      setCashOpValue('');
+                      setCashOpReason('');
+                    }}
+                    className="bg-brand-emerald text-brand-navy-deep text-xs font-bold px-4 py-1.5 rounded-lg font-sans shadow"
+                  >
+                    Confirmar Operação
+                  </button>
+                </div>
               </div>
             )}
 
           </div>
-
-          {/* Inline Operation Drawer for Sangria / Suprimento */}
-          {(showSangriaForm || showSuprimentoForm) && (
-            <div className="bg-brand-navy-deep/85 border border-brand-navy-bright/10 p-5 rounded-lg mt-1.5 space-y-3 animate-slide-in max-w-xl">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold tracking-wider text-slate-200">
-                  {showSangriaForm ? '🚨 Lançamento extraordinário de retirada' : '💰 Cadastro de reforço de moedas'}
-                </span>
-                <span className="text-[10px] font-mono text-slate-400">
-                  Operador: {rlsSession?.userName || 'Operador'}
-                </span>
-              </div>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">R$</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="0,00"
-                    value={cashOpValue}
-                    onChange={(e) => setCashOpValue(e.target.value)}
-                    className="w-full bg-brand-navy-card border border-brand-navy-bright rounded-lg py-2 pl-8 pr-3 text-xs font-bold font-mono text-slate-100 focus:outline-none focus:border-brand-emerald"
-                  />
-                </div>
-                
-                <input
-                  type="text"
-                  placeholder={showSangriaForm ? "Ex: Recolhimento de valores" : "Ex: Troco inicial extra"}
-                  value={cashOpReason}
-                  onChange={(e) => setCashOpReason(e.target.value)}
-                  className="w-full sm:col-span-2 bg-brand-navy-card border border-brand-navy-bright rounded-lg py-2 px-3 text-xs text-slate-200 focus:outline-none focus:border-brand-emerald"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <button
-                  onClick={() => {
-                    setShowSangriaForm(false);
-                    setShowSuprimentoForm(false);
-                  }}
-                  className="px-3 py-1.5 text-[11px] text-slate-400 hover:text-slate-200 font-mono"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={() => {
-                    if (!cashOpValue || isNaN(parseFloat(cashOpValue)) || parseFloat(cashOpValue) <= 0) {
-                      alert("Por favor, forneça um valor válido.");
-                      return;
-                    }
-                    if (!cashOpReason.trim()) {
-                      alert("Por favor, preencha a justificativa.");
-                      return;
-                    }
-                    
-                    if (showSangriaForm) {
-                      handleAddSangria(cashOpValue, cashOpReason);
-                      setShowSangriaForm(false);
-                    } else {
-                      handleAddSuprimento(cashOpValue, cashOpReason);
-                      setShowSuprimentoForm(false);
-                    }
-                    setCashOpValue('');
-                    setCashOpReason('');
-                  }}
-                  className="bg-brand-emerald text-brand-navy-deep text-xs font-bold px-4 py-1.5 rounded-lg font-sans shadow"
-                >
-                  Confirmar Operação
-                </button>
-              </div>
-            </div>
-          )}
-
         </div>
-      </div>
       )}
 
       {/* 3. Primary Workspace Screen viewports */}
       <main className={`flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 pb-20 transition-all duration-300 ${caixaState?.status === 'fechado' && !['Master', 'Gerente', 'Financeiro'].includes(rlsSession?.userRole || userSession?.userRole || '') ? 'blur-sm pointer-events-none opacity-40' : ''}`}>
-        
+
         {activeTab === 'PDV' ? (
           <div className="space-y-4">
-            <PdvSection 
+            <PdvSection
               key={pdvKey}
-              onAddTransaction={handleAddTransaction} 
-              rlsSession={rlsSession as RlsSession} 
+              onAddTransaction={handleAddTransaction}
+              rlsSession={rlsSession as RlsSession}
               clients={clients}
               setClients={setClients}
               isMaster={isMaster}
@@ -2420,8 +2389,8 @@ export default function App() {
           </div>
         ) : (
           isMaster ? (
-            <FluxoCaixaSection 
-              transactions={transactions} 
+            <FluxoCaixaSection
+              transactions={transactions}
               onUnloadTransaction={handleUnloadTransaction}
               rlsSession={rlsSession as RlsSession}
               clients={clients}
@@ -2461,7 +2430,7 @@ export default function App() {
                 <Shield className="w-5 h-5 text-brand-emerald" />
                 <h2 className="text-sm font-bold text-white">Alternar Operador</h2>
               </div>
-              <button 
+              <button
                 onClick={() => {
                   setShowAlternarModal(false);
                   setAlternarEmail('');
@@ -2472,12 +2441,12 @@ export default function App() {
                 [X] Fechar
               </button>
             </div>
-            
+
             <p className="text-xs text-slate-400 leading-relaxed">
               Troca rápida de turno de caixa (ex: horário de almoço). O caixa corrente permanecerá aberto sem zerar o subtotal acumulado.
             </p>
 
-            <form 
+            <form
               onSubmit={async (e) => {
                 e.preventDefault();
                 const isLogged = await handleSwitchActiveOperator(alternarEmail, alternarPass);
@@ -2491,8 +2460,8 @@ export default function App() {
             >
               <div>
                 <label className="block text-[11px] font-semibold text-slate-300 mb-1">E-mail do Operador</label>
-                <input 
-                  type="email" 
+                <input
+                  type="email"
                   required
                   value={alternarEmail}
                   onChange={e => setAlternarEmail(e.target.value)}
@@ -2502,8 +2471,8 @@ export default function App() {
               </div>
               <div>
                 <label className="block text-[11px] font-semibold text-slate-300 mb-1">Senha</label>
-                <input 
-                  type="password" 
+                <input
+                  type="password"
                   required
                   value={alternarPass}
                   onChange={e => setAlternarPass(e.target.value)}
@@ -2523,7 +2492,7 @@ export default function App() {
       {isScreenLocked && userSession && (
         <div className="fixed inset-0 z-[200] bg-brand-navy-deep/95 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-brand-navy-card border border-brand-navy-bright p-8 rounded-2xl max-w-md w-full space-y-6 shadow-2xl relative text-center">
-            
+
             {/* Pulsating Shield Key Icon */}
             <div className="mx-auto w-16 h-16 bg-brand-emerald/15 rounded-full flex items-center justify-center border border-brand-emerald/35 animate-pulse mb-2">
               <Lock className="w-8 h-8 text-brand-emerald" />
@@ -2569,11 +2538,11 @@ export default function App() {
               )}
             </div>
 
-            <form 
+            <form
               onSubmit={async (e) => {
                 e.preventDefault();
                 setUnlockError('');
-                
+
                 const trimmedEmail = (userSession?.email || '').trim().toLowerCase();
                 let isAuthorized = false;
                 let userFound = null;
@@ -2619,7 +2588,7 @@ export default function App() {
                         ? 'SELECT * FROM current_orders WHERE created_by_id = authenticated_user_id(); (RESTRICTED TO SELF CREATED)'
                         : 'SELECT * FROM transactions WHERE tenant_id = current_tenant(); (FULL COMMITTED ACCESSIBILITY)'
                     };
-                    
+
                     setUserSession(nextSession);
                     setRlsSession(nextSession);
                     setIsMaster((userFound.funcao || userFound.role) !== 'Operador');
@@ -2647,8 +2616,8 @@ export default function App() {
                 <label className="block text-[10px] font-semibold text-slate-400 font-mono uppercase tracking-wider mb-1">
                   Senha de Acesso do Operador
                 </label>
-                <input 
-                  type="password" 
+                <input
+                  type="password"
                   required
                   autoFocus
                   value={unlockPassword}
@@ -2665,7 +2634,7 @@ export default function App() {
               </div>
 
               <div className="flex gap-3">
-                <button 
+                <button
                   type="button"
                   onClick={() => {
                     handleLogout();
@@ -2677,8 +2646,8 @@ export default function App() {
                 >
                   Sair do Caixa
                 </button>
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   className="flex-[2] py-3 text-xs bg-brand-emerald hover:bg-emerald-400 text-brand-navy-deep font-bold rounded-lg transition-all shadow-lg hover:shadow-brand-emerald/15 cursor-pointer"
                 >
                   Destravar Operação [ENTER]
@@ -2693,7 +2662,7 @@ export default function App() {
       {showAlreadyOpenPopup && alreadyOpenDetails && (
         <div className="fixed inset-0 z-[110] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-brand-navy-card border border-brand-navy-bright p-8 rounded-2xl max-w-md w-full space-y-6 shadow-2xl relative text-center">
-            
+
             <div className="mx-auto w-14 h-14 bg-brand-accent/15 rounded-full flex items-center justify-center border border-brand-accent/30 text-brand-accent animate-pulse">
               <Building2 className="w-7 h-7" />
             </div>
@@ -2753,14 +2722,13 @@ export default function App() {
           const isAlert = t.type === 'alert';
 
           return (
-            <div 
-              key={t.id} 
+            <div
+              key={t.id}
               className="bg-brand-navy-card/95 border border-brand-navy-bright rounded-xl p-4 shadow-2xl backdrop-blur-md flex items-start gap-3 text-xs animate-slide-in relative overflow-hidden"
             >
               {/* Colored left bar */}
-              <div className={`absolute top-0 bottom-0 left-0 w-1 ${
-                isSuccess ? 'bg-brand-emerald' : isAlert ? 'bg-brand-crimson' : 'bg-brand-accent'
-              }`} />
+              <div className={`absolute top-0 bottom-0 left-0 w-1 ${isSuccess ? 'bg-brand-emerald' : isAlert ? 'bg-brand-crimson' : 'bg-brand-accent'
+                }`} />
 
               <div className="p-1 rounded bg-slate-800 text-slate-300">
                 {isSuccess && <CheckCircle className="w-4 h-4 text-brand-emerald" />}
@@ -2787,9 +2755,9 @@ export default function App() {
       {/* 4. ATA DE ENCERRAMENTO E AUDITORIA DE CAIXA (SISTEMA DE IMPRESSÃO WEB) */}
       {printReport && (
         <div className="print-report-container fixed inset-0 z-[150] bg-black/60 backdrop-blur-[8px] overflow-y-auto flex items-start justify-center p-4 md:p-8 print:absolute print:bg-white print:text-black print:p-0 print:m-0 print:overflow-hidden">
-          
+
           <div className="bg-brand-navy-card border border-brand-navy-bright w-full max-w-4xl rounded-2xl shadow-2xl p-6 md:p-10 space-y-8 animate-scale-up print:border-none print:shadow-none print:p-0 print:text-black print:bg-white">
-            
+
             {/* Header controls (printed hidden) */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-brand-navy-bright/10 print:hidden">
               <div className="flex items-center gap-2 text-brand-emerald">
@@ -2885,7 +2853,7 @@ export default function App() {
                     <span className="text-right">Sinal</span>
                     <span className="text-right">Valor Operado</span>
                   </div>
-                  
+
                   <div className="divide-y divide-brand-navy-bright/10 print:divide-black/20">
                     <div className="grid grid-cols-3 p-3">
                       <span>Fundo de Troco de Abertura</span>
@@ -2980,23 +2948,21 @@ export default function App() {
                 <h3 className="text-xs font-bold tracking-wider font-mono text-brand-emerald uppercase print:text-black">
                   2.2. Auditoria de Paridade & Divergência
                 </h3>
-                <div className={`p-4 rounded-xl border font-mono text-xs flex flex-col md:flex-row md:items-center justify-between gap-4 ${
-                  printReport.status === 'Conciliado' 
-                    ? 'bg-brand-emerald/10 border-brand-emerald/30 text-brand-emerald' 
+                <div className={`p-4 rounded-xl border font-mono text-xs flex flex-col md:flex-row md:items-center justify-between gap-4 ${printReport.status === 'Conciliado'
+                    ? 'bg-brand-emerald/10 border-brand-emerald/30 text-brand-emerald'
                     : 'bg-red-500/10 border-red-500/30 text-red-400'
-                } print:border-black/40 print:text-black print:bg-transparent`}>
+                  } print:border-black/40 print:text-black print:bg-transparent`}>
                   <div className="space-y-1 text-slate-300 print:text-black">
                     <span className="text-[10px] uppercase font-bold text-slate-400 print:text-black">Divergência Apurada</span>
                     <p className="text-base font-extrabold">{DecimalMath.formatBRL(printReport.divergencia)} ({printReport.status})</p>
                   </div>
-                  
+
                   <div className="text-right">
                     <span className="text-[10px] uppercase font-bold text-slate-400 print:text-black block mb-1">Status Governança</span>
-                    <span className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase ${
-                      printReport.status === 'Conciliado'
+                    <span className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase ${printReport.status === 'Conciliado'
                         ? 'bg-brand-emerald/20 text-brand-emerald border border-brand-emerald/30'
                         : 'bg-red-500/20 text-red-500 border border-red-500/30'
-                    } print:text-black print:border-black print:bg-transparent`}>
+                      } print:text-black print:border-black print:bg-transparent`}>
                       {printReport.status === 'Conciliado' ? 'CAIXA INTEGRALMENTE CONCILIADO' : 'ATENÇÃO: INCONSISTÊNCIA DETECTADA'}
                     </span>
                   </div>
@@ -3005,7 +2971,7 @@ export default function App() {
 
               {/* SECTION E: SECURITY MESSAGE & SIGNATURES */}
               <div className="pt-12 border-t border-dashed border-slate-700/60 font-mono text-xs text-slate-400 print:border-black/30 print:text-black space-y-8">
-                
+
                 <h3 className="text-xs font-bold tracking-wider font-mono text-brand-emerald uppercase print:text-black text-center">
                   3. Validação e Assinaturas de Responsabilidade
                 </h3>

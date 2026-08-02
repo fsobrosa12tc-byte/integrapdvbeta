@@ -4,9 +4,9 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { 
+import {
   UserPlus, Search, ShoppingBag, Plus, Minus, Trash2, Pencil,
-  CreditCard, CheckSquare, Sparkles, DollarSign, QrCode, 
+  CreditCard, CheckSquare, Sparkles, DollarSign, QrCode,
   Calculator, User, Briefcase, ChevronRight, HelpCircle, Lock, Keyboard, ShieldAlert, X
 } from 'lucide-react';
 import { ServiceItem, SelectedService, ClientProfile, Transaction, RlsSession, CaixaState } from '../types';
@@ -81,7 +81,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
     const parts = value.split('.');
     const integerPart = parts[0];
     const decimalPart = parts[1];
-    
+
     // Milhares com ponto
     const formattedInteger = Number(integerPart).toLocaleString('pt-BR');
     return `R$ ${formattedInteger},${decimalPart}`;
@@ -113,22 +113,22 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
           .select('*')
           .order('name');
         if (error) throw error;
-        
+
         const isUpToDate = data && data.length === PORTARIA_45_SERVICES.length && data.some(s => s.name.startsWith('Alteração: Alteração'));
-        
+
         if (!data || !isUpToDate) {
           // Limpa qualquer dado genérico anterior
           await supabase.from('servicos').delete().neq('id', '00000000-0000-0000-0000-000000000000');
           // Insere os novos dados
           const { error: insertError } = await supabase.from('servicos').insert(PORTARIA_45_SERVICES);
           if (insertError) throw insertError;
-          
+
           // Re-busca os serviços inseridos
           const { data: refreshedData } = await supabase
             .from('servicos')
             .select('*')
             .order('name');
-            
+
           if (refreshedData) {
             setServices(refreshedData.map((s: any) => ({
               id: s.id,
@@ -180,7 +180,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
     // Clean R$ symbols and whitespaces
     let cleaned = valStr.replace(/R\$\s*/gi, '').trim();
     if (!cleaned) return '0.00';
-    
+
     if (cleaned.includes(',')) {
       cleaned = cleaned.replace(/\./g, '').replace(',', '.');
     } else if (!cleaned.includes('.')) {
@@ -236,11 +236,11 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
       setDebtorHistory([]);
       return;
     }
-    
+
     setSelectedDebtor(client);
     setIsLoadingHistory(true);
     setDebtorHistory([]);
-    
+
     try {
       const { data, error } = await supabase
         .from('transacoes')
@@ -249,24 +249,21 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
         .neq('status_conciliacao', 'CANCELLED')
         .neq('status', 'CANCELLED')
         .order('criado_em', { ascending: false });
-        
-      if (error) throw error;
-      
-      const history = (data || []).filter(tx => {
-         const rawClientName = tx.cliente_nome || 'Particular (Consumidor)';
-         const cpfCnpjMatch = rawClientName.match(/\((?:CPF|CNPJ):\s*([^\)]+)\)/i);
-         const clientCpfCnpj = cpfCnpjMatch ? cpfCnpjMatch[1].trim() : '000.000.000-00';
-         const clientName = rawClientName.replace(/\s*\((?:CPF|CNPJ):[^\)]+\)/i, '').trim();
 
-         const isThisClient = (clientCpfCnpj !== '000.000.000-00' && clientCpfCnpj === client.cpfCnpj) || clientName === client.name;
-         
-         if (isThisClient) {
-            const txItems = tx.itens || [];
-            return txItems.some((item: any) => item.type === 'CONVÊNIO');
-         }
-         return false;
+      if (error) throw error;
+
+      // CORREÇÃO: Inclui QUALQUER transação BOLETO do despachante no extrato,
+      // não apenas as que contêm itens do tipo 'CONVÊNIO'.
+      // Qualquer lançamento B2B via Faturamento de Guia (BOLETO) deve aparecer aqui.
+      const history = (data || []).filter(tx => {
+        const rawClientName = tx.cliente_nome || 'Particular (Consumidor)';
+        const cpfCnpjMatch = rawClientName.match(/\((?:CPF|CNPJ):\s*([^\)]+)\)/i);
+        const clientCpfCnpj = cpfCnpjMatch ? cpfCnpjMatch[1].trim() : '000.000.000-00';
+        const clientName = rawClientName.replace(/\s*\((?:CPF|CNPJ):[^\)]+\)/i, '').trim();
+
+        return (clientCpfCnpj !== '000.000.000-00' && clientCpfCnpj === client.cpfCnpj) || clientName === client.name;
       });
-      
+
       setDebtorHistory(history);
     } catch (err) {
       console.error('Erro ao carregar histórico do despachante:', err);
@@ -320,7 +317,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
   }, [checkoutStage]);
 
   const [paymentMethod, setPaymentMethod] = useState<'PIX' | 'CREDIT_CARD' | 'DEBIT_CARD' | 'BOLETO' | 'CASH'>('PIX');
-  
+
   // Payment Details
   const [installments, setInstallments] = useState<number>(1);
   const [cashReceived, setCashReceived] = useState<string>('');
@@ -461,12 +458,12 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
         const activeEl = document.activeElement;
         const isInputHoveredOrFocused =
           activeEl && (
-            activeEl.tagName === 'INPUT' || 
-            activeEl.tagName === 'TEXTAREA' || 
+            activeEl.tagName === 'INPUT' ||
+            activeEl.tagName === 'TEXTAREA' ||
             activeEl.tagName === 'SELECT' ||
             activeEl.getAttribute('contenteditable') === 'true'
           );
-        
+
         if (!isInputHoveredOrFocused) {
           typedValueInputRef.current?.focus();
         }
@@ -516,7 +513,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
     setTypedValue('R$ 0,00');
     setTypedServiceName('');
     setTypedServiceObservation('');
-    
+
     // Auto focus immediately
     setTimeout(() => {
       typedValueInputRef.current?.focus();
@@ -556,9 +553,9 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
         baseValue: item.unitValue,
         description: 'Lançamento acumulado via Painel Expresso'
       };
-      newCartItems.push({ 
-        service: customSrv, 
-        quantity: item.quantity, 
+      newCartItems.push({
+        service: customSrv,
+        quantity: item.quantity,
         customValue: item.unitValue,
         observation: item.observation
       });
@@ -573,9 +570,9 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
         baseValue: typedSingleUnitValue,
         description: 'Lançamento expresso via Painel de Digitação Rápida'
       };
-      newCartItems.push({ 
-        service: customSrv, 
-        quantity: typedQty, 
+      newCartItems.push({
+        service: customSrv,
+        quantity: typedQty,
         customValue: typedSingleUnitValue,
         observation: typedServiceObservation.trim()
       });
@@ -599,7 +596,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
   };
 
   // --- CLIENT SELECTION HANDLERS ---
-  const filteredClients = clients.filter(c => 
+  const filteredClients = clients.filter(c =>
     c.name.toLowerCase().includes(searchClientQuery.toLowerCase()) ||
     c.cpfCnpj.includes(searchClientQuery)
   );
@@ -608,7 +605,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
     setSelectedClient(client);
     setSearchClientQuery('');
     setShowClientDropdown(false);
-    
+
     // Auto reset faturamento if client is not Despachante
     if (client.category !== 'Despachante Credenciado' && paymentMethod === 'BOLETO') {
       setPaymentMethod('PIX');
@@ -653,7 +650,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
         setSelectedClient(mappedClient);
         showToast('Despachante Cadastrado', 'Despachante cadastrado com sucesso!', 'success');
       }
-      
+
       // reset form
       setNewClientName('');
       setNewClientCpfCnpj('');
@@ -690,8 +687,8 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
   useEffect(() => {
     const query = searchServiceQuery.trim().toLowerCase();
     if (query) {
-      const match = services.find(s => 
-        s.name.toLowerCase().includes(query) || 
+      const match = services.find(s =>
+        s.name.toLowerCase().includes(query) ||
         s.description.toLowerCase().includes(query)
       );
       if (match) {
@@ -839,11 +836,11 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
     // Execute the pending action!
     if (overrideAction) {
       const { type, srvId, payload } = overrideAction;
-      
+
       if (type === 'DECREASE_QTY') {
         const delta = payload.delta;
         logItem.action = `Redução da quantidade do serviço (ID: ${srvId}) por ${delta}`;
-        
+
         const updatedCart = cart.map(item => {
           if (item.service.id === srvId) {
             const nextQ = item.quantity + delta;
@@ -890,8 +887,8 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
   // --- SERVICE FILTERING ---
   const filteredServices = services.filter(srv => {
     const matchesTab = selectedServiceTab === 'ALL' || srv.type === selectedServiceTab;
-    const matchesSearch = srv.name.toLowerCase().includes(searchServiceQuery.toLowerCase()) || 
-                          srv.description.toLowerCase().includes(searchServiceQuery.toLowerCase());
+    const matchesSearch = srv.name.toLowerCase().includes(searchServiceQuery.toLowerCase()) ||
+      srv.description.toLowerCase().includes(searchServiceQuery.toLowerCase());
     return matchesTab && matchesSearch;
   });
 
@@ -970,7 +967,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
 
     onAddTransaction(newTx);
     setRecentlyCreatedTx(newTx);
-    
+
     // Clear and reset state - Expurgo Completo de Valores Fantasmas
     setCart([]);
     setAccumulatedServices([]);
@@ -979,7 +976,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
     setCashReceived('');
     setPixStatus('WAITING');
     setInstallments(1);
-    
+
     // Clear and reset client identification to completely hide it from the empty cart view
     setParticularClientName('');
     setParticularClientCpf('');
@@ -1034,7 +1031,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
 
   return (
     <div id="pdv-checkout-anchor" className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start relative">
-      
+
       {/* CENTRALIZED CASHIER ALERT POPUP FOR SUPERVISORS */}
       {caixaState && caixaState?.status === 'aberto' && (rlsSession?.userRole === 'Gerente' || rlsSession?.userRole === 'Financeiro') && (
         <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[40] w-full max-w-xl px-4 animate-bounce">
@@ -1056,7 +1053,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
 
       {/* LEFT COLUMN: Service Inventory selection & Client Association (7 cols) */}
       <div className="lg:col-span-7 flex flex-col gap-6">
-        
+
         {/* PAINEL DE DIGITAÇÃO DE VALORES UNIFICADO */}
         <div className="bg-brand-navy-card/50 rounded-2xl p-6 md:p-8 shadow-[0_4px_20px_rgba(0,0,0,0.2)] flex flex-col gap-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-brand-navy-bright/10 pb-4">
@@ -1067,17 +1064,16 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
               </h3>
               <p className="text-[11px] text-slate-400 mt-0.5">Lançamento de atendimento expresso ou faturamento de guias</p>
             </div>
-            
+
             {/* Dynamic tab selector for Atendimento Mode */}
             <div className="flex bg-brand-navy-deep p-1 rounded-lg border border-brand-navy-bright/10 text-xs gap-1">
               <button
                 type="button"
                 onClick={() => setAtendimentoMode('LANCHAMENTO')}
-                className={`px-3 py-1.5 font-bold rounded-lg transition-all cursor-pointer ${
-                  atendimentoMode === 'LANCHAMENTO'
+                className={`px-3 py-1.5 font-bold rounded-lg transition-all cursor-pointer ${atendimentoMode === 'LANCHAMENTO'
                     ? 'bg-brand-emerald text-brand-navy-deep shadow-sm shadow-brand-emerald/10'
                     : 'text-slate-400 hover:text-slate-200'
-                }`}
+                  }`}
               >
                 Lançamento Expresso
               </button>
@@ -1085,18 +1081,17 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
                 type="button"
                 id="tab-convenio-btn"
                 onClick={() => setAtendimentoMode('FATURAMENTO_GUIA')}
-                className={`px-3 py-1.5 font-bold rounded-lg transition-all cursor-pointer ${
-                  atendimentoMode === 'FATURAMENTO_GUIA'
+                className={`px-3 py-1.5 font-bold rounded-lg transition-all cursor-pointer ${atendimentoMode === 'FATURAMENTO_GUIA'
                     ? 'bg-brand-emerald text-brand-navy-deep shadow-sm shadow-brand-emerald/10'
                     : 'text-slate-400 hover:text-slate-200'
-                }`}
+                  }`}
               >
                 Faturamento de Guia
               </button>
             </div>
 
             {onAlternarOperador && (
-              <button 
+              <button
                 type="button"
                 onClick={onAlternarOperador}
                 className="text-xs font-semibold px-3 py-1.5 bg-brand-navy-deep hover:bg-brand-navy-bright border border-brand-emerald/20 text-brand-emerald rounded-lg transition-all flex items-center gap-1.5 cursor-pointer hover:border-brand-emerald/40 hover:bg-brand-navy-deep/60 self-start sm:self-auto"
@@ -1230,7 +1225,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
 
                         {/* Autocomplete Suggestions box */}
                         {showServiceSuggestions && typedServiceName.trim().length > 0 && (
-                          <div 
+                          <div
                             className="absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-slate-900 border border-brand-navy-bright/10 rounded-lg shadow-2xl p-1 divide-y divide-slate-800/40"
                             onMouseDown={(e) => e.preventDefault()}
                           >
@@ -1350,28 +1345,26 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
               <div className="pt-4 border-t border-brand-navy-bright/10 space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-2">
                   <h4 className="text-xs font-semibold text-slate-300">Identificação de quem está comprando</h4>
-                  
+
                   {/* Toggle Switch / Button Group Elegante */}
                   <div className="flex bg-brand-navy-deep p-1 rounded-lg border border-brand-navy-bright/10 self-start sm:self-auto">
                     <button
                       type="button"
                       onClick={() => handleTransitionCustomerType('PARTICULAR')}
-                      className={`px-3 py-1.5 text-[11px] font-semibold rounded-md transition-all cursor-pointer ${
-                        customerType === 'PARTICULAR'
+                      className={`px-3 py-1.5 text-[11px] font-semibold rounded-md transition-all cursor-pointer ${customerType === 'PARTICULAR'
                           ? 'bg-brand-emerald text-brand-navy-deep shadow-sm shadow-brand-emerald/10'
                           : 'text-slate-400 hover:text-slate-200'
-                      }`}
+                        }`}
                     >
                       Cliente particular
                     </button>
                     <button
                       type="button"
                       onClick={() => handleTransitionCustomerType('B2B')}
-                      className={`px-3 py-1.5 text-[11px] font-semibold rounded-md transition-all cursor-pointer ${
-                        customerType === 'B2B'
+                      className={`px-3 py-1.5 text-[11px] font-semibold rounded-md transition-all cursor-pointer ${customerType === 'B2B'
                           ? 'bg-brand-emerald text-brand-navy-deep shadow-sm shadow-brand-emerald/10'
                           : 'text-slate-400 hover:text-slate-200'
-                      }`}
+                        }`}
                     >
                       Despachante B2B
                     </button>
@@ -1385,7 +1378,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
                       <div className="flex items-center justify-between">
                         <span className="text-[11px] font-medium text-slate-400">Cliente particular (Balcão de rua)</span>
                       </div>
-                      
+
                       {/* Nome do Cliente Particular */}
                       <div className="relative">
                         <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
@@ -1441,8 +1434,8 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
                       >
                         <span className="flex items-center gap-2">
                           <User className="w-4 h-4 text-brand-emerald" />
-                          {selectedClient && selectedClient.id !== 'particular-temp' 
-                            ? selectedClient.name 
+                          {selectedClient && selectedClient.id !== 'particular-temp'
+                            ? selectedClient.name
                             : 'Clique para selecionar despachante...'}
                         </span>
                         <span className="text-[10px] text-brand-emerald font-mono font-bold bg-brand-emerald/10 px-2 py-0.5 rounded">
@@ -1518,11 +1511,10 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
                             <React.Fragment key={client.id}>
                               <tr
                                 onClick={() => handleSelectDebtor(client)}
-                                className={`cursor-pointer transition-colors ${
-                                  isSelected
+                                className={`cursor-pointer transition-colors ${isSelected
                                     ? 'bg-brand-emerald/10 text-brand-emerald'
                                     : 'hover:bg-brand-navy-deep/40 text-slate-300'
-                                }`}
+                                  }`}
                               >
                                 <td className="px-4 py-3">
                                   <span className={`block font-semibold ${isSelected ? 'text-brand-emerald' : 'text-slate-200'}`}>
@@ -1584,11 +1576,11 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
                 disabled={!selectedDebtor}
                 onClick={() => {
                   if (!selectedDebtor) return;
-                  
+
                   // Setup checkout details
                   setSelectedClient(selectedDebtor);
                   setCustomerType('B2B');
-                  
+
                   // Consolidate values
                   const consolidatedValue = parseFloat(selectedDebtor.outstandingBalance || '0.00').toFixed(2);
                   const debtService: ServiceItem = {
@@ -1598,31 +1590,30 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
                     description: `Faturamento de convenios: ${selectedDebtor.guiasPendentes || 0} guias pendentes do parceiro.`,
                     baseValue: '0.00'
                   };
-                  
+
                   const cartItem: SelectedService = {
                     service: debtService,
                     quantity: 1,
                     customValue: consolidatedValue
                   };
-                  
+
                   setCart([cartItem]);
                   setPaymentMethod('BOLETO'); // Locks payment method to Boleto (Faturamento) for B2B Guia
                   setCheckoutStage('CART'); // Redirect focus directly to checkout view
-                  
+
                   // Render temporary feedback alert toast
-                  setConvenioToastMsg(`Sucesso! Débito de R$ ${parseFloat(consolidatedValue).toLocaleString('pt-BR', {minimumFractionDigits: 2})} carregado para ${selectedDebtor.name}.`);
+                  setConvenioToastMsg(`Sucesso! Débito de R$ ${parseFloat(consolidatedValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} carregado para ${selectedDebtor.name}.`);
                   setShowConvenioToast(true);
                   setTimeout(() => {
                     setShowConvenioToast(false);
                   }, 4000);
-                  
+
                   setSelectedDebtor(null);
                 }}
-                className={`w-full py-3.5 px-4 rounded-xl text-xs font-bold font-sans uppercase tracking-wider transition-all duration-150 flex items-center justify-center gap-2 ${
-                  selectedDebtor
+                className={`w-full py-3.5 px-4 rounded-xl text-xs font-bold font-sans uppercase tracking-wider transition-all duration-150 flex items-center justify-center gap-2 ${selectedDebtor
                     ? 'bg-brand-emerald hover:bg-emerald-400 text-brand-navy-deep cursor-pointer shadow-lg shadow-brand-emerald/10'
                     : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700/50'
-                }`}
+                  }`}
               >
                 <ShoppingBag className="w-4 h-4" />
                 Efetuar Pagamento de Convênio
@@ -1633,7 +1624,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
 
         {/* SERVICES INVENTORY GRID */}
         <div className="bg-brand-navy-card/50 rounded-2xl p-6 md:p-8 shadow-[0_4px_20px_rgba(0,0,0,0.2)] flex-grow flex flex-col lg:min-h-0 min-h-[480px] overflow-hidden">
-          
+
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
             <div>
               <h3 className="font-sans font-bold text-base text-slate-200 flex items-center gap-2">
@@ -1795,12 +1786,11 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
                         <span className="text-xs font-semibold text-slate-100 group-hover:text-brand-emerald transition-colors">
                           {srv.name}
                         </span>
-                        
-                        <span className={`text-[9px] uppercase font-mono px-1.5 py-0.5 rounded-full font-bold ${
-                          isDetran 
+
+                        <span className={`text-[9px] uppercase font-mono px-1.5 py-0.5 rounded-full font-bold ${isDetran
                             ? 'bg-amber-500/10 text-amber-500 border border-amber-500/10'
                             : 'bg-slate-700/20 text-slate-400 border border-slate-700/20'
-                        }`}>
+                          }`}>
                           {srv.type === 'DETRAN' ? 'OPERACIONAL' : srv.type}
                         </span>
                       </div>
@@ -1811,7 +1801,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
                       <span className="font-mono text-xs md:text-sm font-bold text-slate-200 mr-2">
                         {DecimalMath.formatBRL(srv.baseValue)}
                       </span>
-                      
+
                       {hasCrudAccess && (
                         <>
                           <button
@@ -1828,7 +1818,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
                           >
                             <Pencil className="w-3" />
                           </button>
-                          
+
                           <button
                             type="button"
                             onClick={(e) => {
@@ -1842,7 +1832,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
                           </button>
                         </>
                       )}
-                      
+
                       <button
                         type="button"
                         onClick={(e) => {
@@ -1944,7 +1934,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
                   onClick={() => {
                     const trimmedName = newServiceName.trim();
                     const trimmedType = newServiceType.trim() || 'GERAL';
-                    
+
                     // Parse Portuguese format R$ XX,XX to float safely through robust sanitization
                     const cleanValueStr = sanitizeServiceValue(newServiceValue);
                     const numericValue = parseFloat(cleanValueStr);
@@ -2007,7 +1997,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
 
       {/* RIGHT COLUMN: Interactive Shopping Cart Bag & Checkout (5 cols) */}
       <div ref={sidebarRef} className="lg:col-span-5 lg:sticky lg:top-24 flex flex-col bg-brand-navy-card/60 border border-brand-navy-bright/10 rounded-2xl overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.2)] h-[calc(100vh-120px)] max-h-[85vh] relative">
-        
+
         {/* BLOCO A: Topo/Cabeçalho (Identificação do Cliente) - Sempre fixo no topo do card */}
         <div id="cart-block-a" className="flex-shrink-0 bg-brand-navy-deep/20 border-b border-brand-navy-bright/10">
           {/* Cart Header */}
@@ -2068,7 +2058,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
           </div>
         ) : (
           <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-            
+
             {/* BLOCO B (Centro/Itens): Scrollable list of Items */}
             <div id="cart-block-b" className="space-y-2.5 overflow-y-auto flex-1 p-6 pr-4 min-h-[100px]" style={{ paddingBottom: isDesktop ? '180px' : '24px' }}>
               {cart.map((item, idx) => {
@@ -2076,7 +2066,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
 
                 return (
                   <div key={item.service.id + idx} className="p-4 bg-brand-navy-deep/40 rounded-lg border border-brand-navy-bright/10 space-y-3 relative">
-                    
+
                     {/* Item title and removal */}
                     <div className="flex items-start justify-between gap-3">
                       <div className="space-y-1">
@@ -2093,7 +2083,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
                           </span>
                         </div>
                       </div>
-                      
+
                       <button
                         onClick={() => handleRemoveFromCart(item.service.id)}
                         className="text-slate-400 hover:text-brand-crimson p-1 rounded-md hover:bg-brand-navy-bright transition-colors cursor-pointer"
@@ -2113,7 +2103,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
 
                     {/* Quantity controls and Price customizer */}
                     <div className="flex items-center justify-between pt-1 border-t border-brand-navy-bright/10">
-                      
+
                       {/* Quantities */}
                       <div className="flex items-center gap-2">
                         <button
@@ -2121,7 +2111,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
                           className="p-1 rounded-md bg-brand-navy-bright text-slate-300 hover:bg-slate-700 transition cursor-pointer"
                         >
                           <Minus className="w-3 h-3" />
-                         </button>
+                        </button>
                         <span className="text-xs font-bold font-mono text-slate-200">{item.quantity}</span>
                         <button
                           onClick={() => handleUpdateQuantity(item.service.id, 1)}
@@ -2181,8 +2171,8 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
             </div>
 
             {/* BLOCO C (Base/Fechamento): Totals + Payment methods + Button - LOCKED AT BOTTOM */}
-            <div 
-              id="cart-block-c" 
+            <div
+              id="cart-block-c"
               className="flex-shrink-0 border-t border-brand-navy-bright/10 p-6 pt-4 bg-brand-navy-card space-y-4 shadow-[0_-8px_24px_rgba(3,7,18,0.25)] mt-auto lg:rounded-b-2xl"
               style={isDesktop ? {
                 position: 'fixed',
@@ -2195,7 +2185,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
                 zIndex: 999
               } : {}}
             >
-              
+
               {/* Subtotal of the cart */}
               <div className="bg-brand-navy-deep/40 rounded-lg p-4 border border-brand-navy-bright/10 space-y-2">
                 <div className="flex justify-between items-center text-xs text-slate-400">
@@ -2237,7 +2227,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
       {recentlyCreatedTx && (
         <div className="fixed inset-0 bg-brand-navy-deep/82 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in overflow-y-auto">
           <div className="bg-slate-950 text-slate-300 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative border border-brand-navy-bright/50 my-8">
-            
+
             {/* Stamp simulation */}
             <div className="absolute top-4 right-4 bg-brand-emerald/10 text-brand-emerald border border-brand-emerald/30 font-mono text-[9px] uppercase px-2 py-0.5 rounded font-bold">
               Postgres RLS Logged
@@ -2245,7 +2235,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
 
             {/* Container das duas vias */}
             <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-1">
-              
+
               {/* 1ª VIA - ESTABELECIMENTO */}
               <div className="p-4 bg-slate-900/60 rounded-xl border border-dashed border-slate-800 space-y-4">
                 <div className="text-center border-b border-dashed border-slate-700 pb-3">
@@ -2444,7 +2434,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
       {showOverrideModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="w-full max-w-md bg-brand-navy-card/95 border border-red-500/30 rounded-2xl p-6 shadow-2xl relative space-y-4">
-            
+
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-red-500/10 border border-red-500/25 rounded-xl text-red-500 animate-pulse">
                 <ShieldAlert className="w-6 h-6" />
@@ -2462,11 +2452,11 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
             <div className="bg-brand-navy-deep/40 rounded-xl p-3 border border-brand-navy-bright/60 space-y-1">
               <span className="block text-[10px] font-mono uppercase tracking-wider text-slate-400">Tipo de Quebra:</span>
               <p className="text-xs font-mono font-bold text-red-400">
-                {overrideAction?.type === 'REMOVE' 
-                  ? '🗑️ EXCLUSÃO DEFINITIVA DE ITEM NA SACOLA' 
+                {overrideAction?.type === 'REMOVE'
+                  ? '🗑️ EXCLUSÃO DEFINITIVA DE ITEM NA SACOLA'
                   : overrideAction?.type === 'DECREASE_QTY'
-                  ? '📉 REDUÇÃO DA QUANTIDADE UNITÁRIA DE ITEM'
-                  : '🔧 MODIFICAÇÃO DE VALOR PREVIAMENTE REGISTRADO'}
+                    ? '📉 REDUÇÃO DA QUANTIDADE UNITÁRIA DE ITEM'
+                    : '🔧 MODIFICAÇÃO DE VALOR PREVIAMENTE REGISTRADO'}
               </p>
             </div>
 
@@ -2563,7 +2553,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
       {deleteServiceConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in">
           <div className="w-full max-w-md bg-brand-navy-deep border border-red-500/30 rounded-2xl p-6 shadow-2xl relative space-y-4">
-            
+
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-red-500/10 border border-red-500/25 rounded-xl text-red-500 animate-pulse">
                 <ShieldAlert className="w-6 h-6" />
@@ -2658,9 +2648,9 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
             {/* Lista com Rolagem */}
             <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
               {clients
-                .filter(c => c.category !== 'Particular' && 
-                  (c.name.toLowerCase().includes(searchB2BQuery.toLowerCase()) || 
-                   c.cpfCnpj.includes(searchB2BQuery))
+                .filter(c => c.category !== 'Particular' &&
+                  (c.name.toLowerCase().includes(searchB2BQuery.toLowerCase()) ||
+                    c.cpfCnpj.includes(searchB2BQuery))
                 )
                 .map((client) => {
                   const isSelected = selectedClient?.id === client.id;
@@ -2676,11 +2666,10 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
                           setPaymentMethod('PIX');
                         }
                       }}
-                      className={`w-full text-left p-3 rounded-xl border transition-all flex items-center justify-between cursor-pointer ${
-                        isSelected
+                      className={`w-full text-left p-3 rounded-xl border transition-all flex items-center justify-between cursor-pointer ${isSelected
                           ? 'bg-brand-emerald/10 border-brand-emerald/40 text-brand-emerald font-bold'
                           : 'bg-brand-navy-deep/40 border-brand-navy-bright/10 text-slate-300 hover:bg-brand-navy-card/60 hover:border-brand-navy-bright/35'
-                      }`}
+                        }`}
                     >
                       <div>
                         <span className="block font-semibold text-xs text-slate-200">{client.name}</span>
@@ -2697,12 +2686,12 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
                     </button>
                   );
                 })}
-              {clients.filter(c => c.category !== 'Particular' && 
-                (c.name.toLowerCase().includes(searchB2BQuery.toLowerCase()) || 
-                 c.cpfCnpj.includes(searchB2BQuery))
+              {clients.filter(c => c.category !== 'Particular' &&
+                (c.name.toLowerCase().includes(searchB2BQuery.toLowerCase()) ||
+                  c.cpfCnpj.includes(searchB2BQuery))
               ).length === 0 && (
-                <p className="text-xs text-slate-500 text-center py-6 font-sans">Nenhum despachante parceiro encontrado.</p>
-              )}
+                  <p className="text-xs text-slate-500 text-center py-6 font-sans">Nenhum despachante parceiro encontrado.</p>
+                )}
             </div>
 
             {/* Footer do Modal */}
@@ -2722,7 +2711,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
       {/* ENCERRAMENTO DO ATENDIMENTO - MODAL OVERLAY GLOBAL CENTRALIZADO */}
       {checkoutStage === 'PAYMENT' && (
         <div className="fixed inset-0 bg-black/75 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div 
+          <div
             id="encerramento-atendimento-modal"
             className="bg-gray-900 border border-emerald-500/30 w-[600px] max-w-[95vw] rounded-2xl shadow-2xl relative animate-scale-up text-slate-300 overflow-hidden"
           >
@@ -2744,7 +2733,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
 
             {/* Modal Body */}
             <div className="p-6 space-y-4">
-              
+
               {/* Client Identification Summary */}
               <div className="bg-brand-navy-deep/50 p-3 rounded-lg border border-brand-navy-bright/10 text-xs">
                 <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Identificação do Atendimento</span>
@@ -2788,7 +2777,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
                 <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-slate-400 block">
                   Método de liquidação do atendimento
                 </span>
-                
+
                 <div className="grid grid-cols-2 gap-1.5">
                   {[
                     { id: 'PIX', label: 'PIX' },
@@ -2810,11 +2799,10 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
                             }, 100);
                           }
                         }}
-                        className={`py-2 px-3 rounded-lg border text-[11px] text-left font-semibold transition-all flex items-center justify-between cursor-pointer ${
-                          isActive
+                        className={`py-2 px-3 rounded-lg border text-[11px] text-left font-semibold transition-all flex items-center justify-between cursor-pointer ${isActive
                             ? 'bg-brand-emerald/10 border-brand-emerald/40 text-brand-emerald'
                             : 'bg-brand-navy-deep border-brand-navy-bright/10 text-slate-300 hover:bg-slate-800'
-                        }`}
+                          }`}
                       >
                         <span>{m.label}</span>
                         {isActive && <div className="w-1.5 h-1.5 rounded-full bg-brand-emerald" />}
@@ -2825,7 +2813,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
 
                 {/* Mode Details Section */}
                 <div className="bg-brand-navy-deep/40 border border-brand-navy-bright/10 p-4 rounded-lg text-xs space-y-2">
-                  
+
                   {paymentMethod === 'PIX' && (
                     <p className="text-[10px] text-slate-400 text-center font-mono py-4">
                       PIX selecionado como forma de pagamento. Prossiga para encerrar o atendimento.
@@ -2888,7 +2876,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
                           className="w-24 bg-brand-navy-card border border-brand-navy-bright/30 rounded-md px-1.5 py-1 text-right font-mono text-xs text-slate-200 focus:outline-none focus:border-brand-emerald/75 transition-all font-bold shadow-inner"
                         />
                       </div>
-                      
+
                       {/* EXIBIÇÃO DO TROCO EM JETBRAINS MONO */}
                       <div className="flex justify-between items-center py-2 px-3 bg-brand-navy-deep/40 rounded-lg border border-brand-navy-bright/10 text-[11px] font-mono">
                         <span className="text-slate-400 font-extrabold uppercase">Troco:</span>
@@ -2913,15 +2901,15 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
                 onClick={handleFinishTransaction}
                 className="w-full py-3.5 bg-brand-emerald hover:bg-emerald-400 text-brand-navy-deep font-sans font-bold text-xs rounded-lg transition cursor-pointer shadow-lg shadow-brand-emerald/10 hover:shadow-brand-emerald/20 flex items-center justify-center gap-1.5 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed"
                 title={
-                  isCashInsufficient 
-                    ? 'Dinheiro pago pelo cliente insuficiente para cobrir o total geral da sacola.' 
+                  isCashInsufficient
+                    ? 'Dinheiro pago pelo cliente insuficiente para cobrir o total geral da sacola.'
                     : 'Finalizar Atendimento'
                 }
               >
                 <CheckSquare className="w-4 h-4" />
                 Encerrar Atendimento e Emitir Cupom
               </button>
-              
+
               <button
                 type="button"
                 onClick={() => setCheckoutStage('CART')}
