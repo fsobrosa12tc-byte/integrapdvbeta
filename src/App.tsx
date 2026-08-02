@@ -1130,19 +1130,48 @@ export default function App() {
             if (updateGuiasError) {
               console.error("Erro ao atualizar guias individuais para PAGO:", updateGuiasError);
             }
+
+            // Atualizar transacoes correspondentes
+            const { error: updateTxsError } = await supabase
+              .from('transacoes')
+              .update({ status_conciliacao: 'PAID' })
+              .in('id', guiasIdsToPay);
+
+            if (updateTxsError) {
+              console.error("Erro ao atualizar transações para PAID:", updateTxsError);
+            }
           } else {
             // Pagamento de todas as guias do despachante
-            const { error: updateGuiasError } = await supabase
+            const { data: pendGuias, error: selectError } = await supabase
               .from('faturamento_guias')
-              .update({
-                status: 'PAGO',
-                data_pagamento: new Date().toISOString()
-              })
+              .select('id')
               .eq('despachante_id', targetClient.id)
               .eq('status', 'PENDENTE');
 
-            if (updateGuiasError) {
-              console.error("Erro ao atualizar todas as guias para PAGO:", updateGuiasError);
+            if (!selectError && pendGuias && pendGuias.length > 0) {
+              const guiasIdsToPay = pendGuias.map((g: any) => g.id);
+
+              const { error: updateGuiasError } = await supabase
+                .from('faturamento_guias')
+                .update({
+                  status: 'PAGO',
+                  data_pagamento: new Date().toISOString()
+                })
+                .in('id', guiasIdsToPay);
+
+              if (updateGuiasError) {
+                console.error("Erro ao atualizar todas as guias para PAGO:", updateGuiasError);
+              }
+
+              // Atualizar transacoes correspondentes
+              const { error: updateTxsError } = await supabase
+                .from('transacoes')
+                .update({ status_conciliacao: 'PAID' })
+                .in('id', guiasIdsToPay);
+
+              if (updateTxsError) {
+                console.error("Erro ao atualizar transações para PAID:", updateTxsError);
+              }
             }
           }
 
@@ -1311,6 +1340,16 @@ export default function App() {
 
             if (balanceError) throw balanceError;
 
+            // Atualizar o status da guia correspondente na faturamento_guias para CANCELADO
+            const { error: updateGuiaError } = await supabase
+              .from('faturamento_guias')
+              .update({ status: 'CANCELADO' })
+              .eq('id', target.id);
+
+            if (updateGuiaError) {
+              console.error("Erro ao cancelar guia associada:", updateGuiaError);
+            }
+
             setClients(prevClients =>
               prevClients.map(c => c.id === targetClient.id ? { ...c, outstandingBalance: safeBal } : c)
             );
@@ -1333,6 +1372,42 @@ export default function App() {
 
             if (balanceError) throw balanceError;
 
+            // Reverter guias para PENDENTE
+            const guiaItems = (target.items || []).filter((item: any) => item.id?.startsWith("srv-convenio-guia-"));
+            if (guiaItems.length > 0) {
+              const guiasIdsToRevert = guiaItems.map((item: any) => item.id.replace("srv-convenio-guia-", ""));
+              await supabase
+                .from('faturamento_guias')
+                .update({ status: 'PENDENTE', data_pagamento: null })
+                .in('id', guiasIdsToRevert);
+
+              // E também as transações correspondentes na tabela transacoes voltam para PENDING
+              await supabase
+                .from('transacoes')
+                .update({ status_conciliacao: 'PENDING' })
+                .in('id', guiasIdsToRevert);
+            } else {
+              // Reverte todas as guias do despachante que foram pagas (pelo timestamp aproximado ou simplesmente as do despachante que estão PAGO)
+              const { data: paidGuias } = await supabase
+                .from('faturamento_guias')
+                .select('id')
+                .eq('despachante_id', targetClient.id)
+                .eq('status', 'PAGO');
+
+              if (paidGuias && paidGuias.length > 0) {
+                const paidIds = paidGuias.map((g: any) => g.id);
+                await supabase
+                  .from('faturamento_guias')
+                  .update({ status: 'PENDENTE', data_pagamento: null })
+                  .in('id', paidIds);
+
+                await supabase
+                  .from('transacoes')
+                  .update({ status_conciliacao: 'PENDING' })
+                  .in('id', paidIds);
+              }
+            }
+
             setClients(prevClients =>
               prevClients.map(c => c.id === targetClient.id ? { ...c, outstandingBalance: nextBal } : c)
             );
@@ -1344,6 +1419,10 @@ export default function App() {
           `Estorno e contingência do cupom ${target.sequenceId} aplicados com sucesso.`,
           'alert'
         );
+
+        // Engatilhar re-fetch reativo completo do estado
+        await fetchInitialData(true);
+
       } catch (err: any) {
         addToast('Erro no Estorno', `Falha ao estornar transação no banco: ${err.message || err}`, 'alert');
       }
