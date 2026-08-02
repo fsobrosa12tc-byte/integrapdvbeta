@@ -1027,6 +1027,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
 
     const newTx: Transaction = {
       id: txId,
+      clientId: selectedClient.id,
       sequenceId: friendlyNumber,
       timestamp: new Date().toISOString(),
       clientName: selectedClient.name,

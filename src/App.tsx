@@ -272,7 +272,61 @@ export default function App() {
       if (guiasError) {
         console.warn('Erro ao buscar faturamento_guias:', guiasError);
       }
-      const safeGuias = guiasData || [];
+      let safeGuias = guiasData || [];
+
+      // Auto-Contingência: verificar se há transações em BOLETO ativas que não possuem guia correspondente na faturamento_guias
+      if (txData && clientData) {
+        const pendingBoletos = txData.filter((tx: any) => 
+          tx.forma_pagamento === 'BOLETO' && 
+          tx.status_conciliacao !== 'CANCELLED' && 
+          tx.status_conciliacao !== 'PAID'
+        );
+
+        const missingGuias = [];
+        for (const tx of pendingBoletos) {
+          const hasGuia = safeGuias.some((g: any) => g.id === tx.id);
+          if (!hasGuia) {
+            const rawClientName = tx.cliente_nome || '';
+            const cpfCnpjMatch = rawClientName.match(/\((?:CPF|CNPJ):\s*([^\)]+)\)/i);
+            const clientCpfCnpj = cpfCnpjMatch ? cpfCnpjMatch[1].trim() : '';
+            const clientName = rawClientName.replace(/\s*\((?:CPF|CNPJ):[^\)]+\)/i, '').trim();
+
+            const targetClient = clientData.find((c: any) => 
+              c.cnpj === clientCpfCnpj || 
+              c.razao_social === clientName ||
+              (c.cnpj && clientCpfCnpj && c.cnpj.replace(/[^\d]/g, '') === clientCpfCnpj.replace(/[^\d]/g, ''))
+            );
+
+            if (targetClient) {
+              missingGuias.push({
+                id: tx.id,
+                despachante_id: targetClient.id,
+                valor_total: parseFloat(tx.valor_liquido || tx.valor_bruto || '0'),
+                status: 'PENDENTE',
+                criado_em: tx.criado_em
+              });
+            }
+          }
+        }
+
+        if (missingGuias.length > 0) {
+          console.log(`[AUTO-CONTINGÊNCIA] Inserindo ${missingGuias.length} guias ausentes...`);
+          const { error: insertErr } = await supabase
+            .from('faturamento_guias')
+            .insert(missingGuias);
+          
+          if (!insertErr) {
+            const { data: reloadedGuias } = await supabase
+              .from('faturamento_guias')
+              .select('*');
+            if (reloadedGuias) {
+              safeGuias = reloadedGuias;
+            }
+          } else {
+            console.error("Erro ao inserir guias ausentes na auto-contingência:", insertErr);
+          }
+        }
+      }
 
       // Validação estrita contra nulos ou indefinidos (Anti-Zeroing) antes de atualizar os estados
       if (!txData || !clientData || !turnosData) {
@@ -1065,7 +1119,11 @@ export default function App() {
       const isDebit = newTx.paymentMethod === 'BOLETO';
 
       if (isDebit) {
-        const targetClient = clients.find(c => c.cpfCnpj === newTx.clientCpfCnpj);
+        const targetClient = clients.find(c => 
+          c.id === (newTx as any).clientId || 
+          c.cpfCnpj === newTx.clientCpfCnpj ||
+          (c.cpfCnpj && newTx.clientCpfCnpj && c.cpfCnpj.replace(/[^\d]/g, '') === newTx.clientCpfCnpj.replace(/[^\d]/g, ''))
+        );
         if (targetClient) {
           const currentBal = targetClient.outstandingBalance || '0.00';
           const nextBal = DecimalMath.add(currentBal, newTx.netTotal);
@@ -1081,6 +1139,7 @@ export default function App() {
           const { error: insertGuiaError } = await supabase
             .from('faturamento_guias')
             .insert([{
+              id: newTx.id, // VINCULAÇÃO DIRETA!
               despachante_id: targetClient.id,
               valor_total: parseFloat(newTx.netTotal),
               status: 'PENDENTE'
@@ -1100,7 +1159,11 @@ export default function App() {
       const isCredit = hasConvenioItem && newTx.paymentMethod !== 'BOLETO';
 
       if (isCredit) {
-        const targetClient = clients.find(c => c.cpfCnpj === newTx.clientCpfCnpj);
+        const targetClient = clients.find(c => 
+          c.id === (newTx as any).clientId || 
+          c.cpfCnpj === newTx.clientCpfCnpj ||
+          (c.cpfCnpj && newTx.clientCpfCnpj && c.cpfCnpj.replace(/[^\d]/g, '') === newTx.clientCpfCnpj.replace(/[^\d]/g, ''))
+        );
         if (targetClient) {
           const currentBal = targetClient.outstandingBalance || '0.00';
           const nextBal = DecimalMath.sub(currentBal, newTx.netTotal);

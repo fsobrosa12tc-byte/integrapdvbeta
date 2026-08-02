@@ -31,6 +31,7 @@ export interface ClientProfile {
 
 export interface Transaction {
   id: string;
+  clientId?: string;
   sequenceId: string; // Friendly visible numeric ID (e.g., INT-3049)
   timestamp: string;
   clientName: string;
