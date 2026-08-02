@@ -406,11 +406,22 @@ export default function App() {
       }));
 
       setClients(clientData.map((c: any) => {
-        const guiasDoDespachante = safeGuias.filter((g: any) => g.despachante_id === c.id);
-        const guiasPendentesObj = guiasDoDespachante.filter((g: any) => g.status === 'PENDENTE');
+        // Encontra transações ativas do despachante na tabela transacoes (forma_pagamento = BOLETO e pendente)
+        const txsDoDespachante = (txData || []).filter((tx: any) => 
+          tx.forma_pagamento === 'BOLETO' && 
+          (tx.status_conciliacao === 'PENDING' || tx.status_conciliacao === 'PENDENTE' || tx.status === 'PENDENTE') &&
+          (tx.despachante_id === c.id || (() => {
+            // Fallback por CNPJ ou nome para dados legados (como a transação 1d47 original)
+            const rawClientName = tx.cliente_nome || '';
+            const cpfCnpjMatch = rawClientName.match(/\((?:CPF|CNPJ):\s*([^\)]+)\)/i);
+            const clientCpfCnpj = cpfCnpjMatch ? cpfCnpjMatch[1].trim() : '';
+            const clientName = rawClientName.replace(/\s*\((?:CPF|CNPJ):[^\)]+\)/i, '').trim();
+            return (clientCpfCnpj && clientCpfCnpj === c.cnpj) || clientName === c.razao_social;
+          })())
+        );
 
-        // outstandingBalance é a soma do valor_total das guias com status PENDENTE
-        const pendingSum = guiasPendentesObj.reduce((sum: number, g: any) => sum + parseFloat(g.valor_total || '0'), 0);
+        // outstandingBalance é a soma do valor_liquido das transações com status PENDENTE
+        const pendingSum = txsDoDespachante.reduce((sum: number, tx: any) => sum + parseFloat(tx.valor_liquido || tx.valor_bruto || '0'), 0);
         const finalOutstanding = pendingSum.toFixed(2);
 
         return {
@@ -419,7 +430,7 @@ export default function App() {
           cpfCnpj: c.cnpj,
           phone: c.telefone,
           outstandingBalance: finalOutstanding,
-          guiasPendentes: guiasPendentesObj.length,
+          guiasPendentes: txsDoDespachante.length,
           category: 'Despachante Credenciado',
           status: 'Ativo'
         };
@@ -949,6 +960,13 @@ export default function App() {
       cliNomeCompleto = `${newTx.clientName} (${docLabel}: ${newTx.clientCpfCnpj})`;
     }
 
+    // Identifica o despachante credenciado correspondente para associação
+    const targetClientForTx = clients.find(c => 
+      c.id === newTx.clientId || 
+      c.cpfCnpj === newTx.clientCpfCnpj ||
+      (c.cpfCnpj && newTx.clientCpfCnpj && c.cpfCnpj.replace(/[^\d]/g, '') === newTx.clientCpfCnpj.replace(/[^\d]/g, ''))
+    );
+
     // Criamos o objeto de payload completo incluindo terminal_id, data_operacional e horario (reconciliados de forma nativa)
     const mappedTx: any = {
       id: newTx.id,
@@ -962,7 +980,8 @@ export default function App() {
       issqn: parseFloat(calculatedIssqn),
       hash_auditoria: '',
       itens: newTx.items,
-      status_conciliacao: newTx.status || 'PAID',
+      status_conciliacao: newTx.paymentMethod === 'BOLETO' ? 'PENDING' : (newTx.status || 'PAID'),
+      status: newTx.paymentMethod === 'BOLETO' ? 'PENDENTE' : undefined,
       turno_id: newTx.turno_id || caixaState?.turno_id || null,
       data_operacional: (() => {
         try {
@@ -973,7 +992,11 @@ export default function App() {
         } catch (e) { }
         return new Date().toISOString().split('T')[0];
       })(),
-      horario: new Date().toLocaleTimeString('pt-BR')
+      horario: new Date().toLocaleTimeString('pt-BR'),
+      despachante_id: targetClientForTx ? targetClientForTx.id : null,
+      tipo: newTx.paymentMethod === 'BOLETO' ? 'GUIA_CONVENIO' : undefined,
+      categoria: newTx.paymentMethod === 'BOLETO' ? 'GUIA_CONVENIO' : undefined,
+      valor_total: newTx.paymentMethod === 'BOLETO' ? parseFloat(valLiquido) : undefined
     };
 
     try {
@@ -1142,7 +1165,9 @@ export default function App() {
               id: newTx.id, // VINCULAÇÃO DIRETA!
               despachante_id: targetClient.id,
               valor_total: parseFloat(newTx.netTotal),
-              status: 'PENDENTE'
+              status: 'PENDENTE',
+              tipo: 'GUIA_CONVENIO',
+              categoria: 'GUIA_CONVENIO'
             }]);
 
           if (insertGuiaError) {

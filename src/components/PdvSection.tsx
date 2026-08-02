@@ -244,16 +244,59 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
 
     setIsLaunchingGuide(true);
     try {
+      const txId = self.crypto.randomUUID();
+      const cliNomeCompleto = client.cpfCnpj ? `${client.name} (CNPJ: ${client.cpfCnpj})` : client.name;
+
       // 1. Insere a guia no faturamento_guias
       const { error: insertError } = await supabase
         .from('faturamento_guias')
         .insert([{
+          id: txId,
           despachante_id: client.id,
           valor_total: valFloat,
           status: 'PENDENTE'
         }]);
 
       if (insertError) throw insertError;
+
+      // 1.2 Insere a transação correspondente na tabela transacoes
+      const { error: insertTxError } = await supabase
+        .from('transacoes')
+        .insert([{
+          id: txId,
+          despachante_id: client.id,
+          cliente_nome: cliNomeCompleto,
+          forma_pagamento: 'BOLETO',
+          valor_bruto: valFloat,
+          valor_liquido: valFloat,
+          status_conciliacao: 'PENDING',
+          operador_email: rlsSession?.email || 'operador.caixa@marks.com',
+          terminal_ip: '127.0.0.1',
+          terminal_id: localStorage.getItem('integra_terminal_id') || 'Caixa_01',
+          turno_id: caixaState?.turno_id || null,
+          data_operacional: (() => {
+            try {
+              if (caixaState?.dataAbertura) {
+                const d = new Date(caixaState.dataAbertura);
+                if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+              }
+            } catch (e) {}
+            return new Date().toISOString().split('T')[0];
+          })(),
+          horario: new Date().toLocaleTimeString('pt-BR'),
+          hash_auditoria: 'MARKS-SHA256-' + txId.substring(0, 8).toUpperCase(),
+          itens: [{
+            serviceName: 'Lançamento de Guia Convênio B2B',
+            type: 'GUIA_CONVENIO',
+            value: valFloat.toFixed(2),
+            quantity: 1,
+            subtotal: valFloat.toFixed(2)
+          }]
+        }]);
+
+      if (insertTxError) {
+        console.error("Erro ao registrar transacao correspondente da guia:", insertTxError);
+      }
 
       // 2. Atualiza o saldo_devedor na tabela despachantes
       const currentBal = parseFloat(client.outstandingBalance || '0');
@@ -284,17 +327,31 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
       setClients(prev => prev.map(c => c.id === client.id ? updatedClient : c));
       setSelectedDebtor(updatedClient);
 
-      // Re-busca o histórico de guias pendentes do despachante a partir da faturamento_guias
+      // Re-busca o histórico de guias pendentes do despachante a partir da tabela transacoes
       setIsLoadingHistory(true);
       const { data: refreshedHistory, error: historyErr } = await supabase
-        .from('faturamento_guias')
-        .select('*')
-        .eq('despachante_id', client.id)
-        .eq('status', 'PENDENTE')
+        .from('transacoes')
+        .select('id, valor_bruto, valor_liquido, criado_em, operador_email, itens, cliente_nome, forma_pagamento, status_conciliacao, status, despachante_id')
+        .eq('forma_pagamento', 'BOLETO')
+        .or('status_conciliacao.eq.PENDING,status_conciliacao.eq.PENDENTE,status.eq.PENDENTE,status.eq.PENDING')
         .order('criado_em', { ascending: false });
 
       if (!historyErr && refreshedHistory) {
-        setDebtorHistory(refreshedHistory);
+        const historyFiltered = refreshedHistory.map(tx => ({
+          ...tx,
+          valor_total: tx.valor_liquido || tx.valor_bruto || '0'
+        })).filter(tx => {
+          if (tx.despachante_id && tx.despachante_id === client.id) return true;
+
+          const rawClientName = tx.cliente_nome || '';
+          const cpfCnpjMatch = rawClientName.match(/\((?:CPF|CNPJ):\s*([^\)]+)\)/i);
+          const clientCpfCnpj = cpfCnpjMatch ? cpfCnpjMatch[1].trim() : '000.000.000-00';
+          const clientName = rawClientName.replace(/\s*\((?:CPF|CNPJ):[^\)]+\)/i, '').trim();
+
+          return (clientCpfCnpj !== '000.000.000-00' && clientCpfCnpj === client.cpfCnpj) || clientName === client.name;
+        });
+
+        setDebtorHistory(historyFiltered);
       }
     } catch (err: any) {
       showToast('Erro ao Salvar', `Falha ao registrar guia: ${err.message || err}`, 'alert');
@@ -344,18 +401,22 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
     try {
       const { data, error } = await supabase
         .from('transacoes')
-        .select('id, valor_bruto, valor_liquido, criado_em, operador_email, itens, cliente_nome, forma_pagamento, status_conciliacao, status')
+        .select('id, valor_bruto, valor_liquido, criado_em, operador_email, itens, cliente_nome, forma_pagamento, status_conciliacao, status, despachante_id')
         .eq('forma_pagamento', 'BOLETO')
-        .neq('status_conciliacao', 'CANCELLED')
-        .neq('status', 'CANCELLED')
+        .or('status_conciliacao.eq.PENDING,status_conciliacao.eq.PENDENTE,status.eq.PENDENTE,status.eq.PENDING')
         .order('criado_em', { ascending: false });
 
       if (error) throw error;
 
-      // CORREÇÃO: Inclui QUALQUER transação BOLETO do despachante no extrato,
-      // não apenas as que contêm itens do tipo 'CONVÊNIO'.
-      // Qualquer lançamento B2B via Faturamento de Guia (BOLETO) deve aparecer aqui.
-      const history = (data || []).filter(tx => {
+      // Filtra e associa as transações ao despachante correspondente
+      const history = (data || []).map(tx => ({
+        ...tx,
+        valor_total: tx.valor_liquido || tx.valor_bruto || '0'
+      })).filter(tx => {
+        // Associação direta por despachante_id
+        if (tx.despachante_id && tx.despachante_id === client.id) return true;
+
+        // Fallback por CNPJ ou nome para transações legadas sem despachante_id
         const rawClientName = tx.cliente_nome || 'Particular (Consumidor)';
         const cpfCnpjMatch = rawClientName.match(/\((?:CPF|CNPJ):\s*([^\)]+)\)/i);
         const clientCpfCnpj = cpfCnpjMatch ? cpfCnpjMatch[1].trim() : '000.000.000-00';
@@ -1750,7 +1811,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
                   setCheckoutStage('CART'); // Redirect focus directly to checkout view
 
                   // Render temporary feedback alert toast
-                  setConvenioToastMsg(`Sucesso! Débito de R$ ${parseFloat(consolidatedValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} carregado para ${selectedDebtor.name}.`);
+                  setConvenioToastMsg(`Sucesso! Débito de R$ ${parseFloat(localConsolidated).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} carregado para ${selectedDebtor.name}.`);
                   setShowConvenioToast(true);
                   setTimeout(() => {
                     setShowConvenioToast(false);
