@@ -2846,7 +2846,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
               <button
                 type="button"
                 onClick={() => setShowB2BModal(false)}
-                className="bg-brand-navy-bright hover:bg-slate-800 text-xs font-semibold px-4 py-2 rounded-xl text-slate-350 hover:text-white transition-all cursor-pointer"
+                className="bg-brand-navy-bright hover:bg-slate-800 text-xs font-semibold px-4 py-2 rounded-xl text-slate-355 hover:text-white transition-all cursor-pointer"
               >
                 Fechar
               </button>
@@ -2857,196 +2857,167 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
 
       {/* ENCERRAMENTO DO ATENDIMENTO - MODAL OVERLAY GLOBAL CENTRALIZADO */}
       {checkoutStage === 'PAYMENT' && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div
-            id="encerramento-atendimento-modal"
-            className="bg-gray-900 border border-emerald-500/30 w-[600px] max-w-[95vw] rounded-2xl shadow-2xl relative animate-scale-up text-slate-300 overflow-hidden"
-          >
-            {/* Modal Header */}
-            <div className="p-5 border-b border-brand-navy-bright flex items-center justify-between bg-brand-navy-deep/40">
-              <div className="flex items-center gap-2">
-                <CheckSquare className="w-5 h-5 text-brand-emerald" />
-                <h3 className="text-sm font-bold text-slate-100 uppercase tracking-wider">Finalização de Atendimento / Pagamento</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in">
+          <div className="bg-gray-900 border border-emerald-500/30 w-full max-w-lg rounded-2xl p-6 shadow-2xl space-y-6 relative text-slate-350 overflow-hidden">
+
+            {/* Cabeçalho */}
+            <div className="flex justify-between items-center border-b border-gray-800 pb-4">
+              <div>
+                <h3 className="text-xl font-bold text-white">Finalizar Atendimento</h3>
+                <p className="text-xs text-gray-400 font-sans">Escolha a forma de pagamento para encerrar</p>
               </div>
+
+              {/* BOTÃO CANCELAR / FECHAR (X) */}
               <button
-                type="button"
                 onClick={() => setCheckoutStage('CART')}
-                className="text-slate-400 hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-800 transition cursor-pointer"
-                title="Cancelar e voltar"
+                className="text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 p-2 rounded-lg transition-all cursor-pointer font-bold"
+                title="Voltar para a Sacola"
               >
-                <X className="w-4 h-4" />
+                ✕
               </button>
             </div>
 
-            {/* Modal Body */}
-            <div className="p-6 space-y-4">
+            {/* Identificação do Cliente */}
+            <div className="bg-gray-950/40 p-3 rounded-xl border border-gray-800/80 text-xs">
+              <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider block">Identificação do Atendimento</span>
+              <p className="text-xs font-semibold text-slate-200 mt-1 truncate">
+                {customerType === 'PARTICULAR' ? (
+                  <span>Cliente: <span className="text-brand-emerald font-bold">{particularClientName.trim() || 'Particular (Consumidor)'}</span></span>
+                ) : (
+                  <span>Despachante: <span className="text-brand-emerald font-bold">{selectedClient?.name || 'Não Selecionado'}</span></span>
+                )}
+              </p>
+            </div>
 
-              {/* Client Identification Summary */}
-              <div className="bg-brand-navy-deep/50 p-3 rounded-lg border border-brand-navy-bright/10 text-xs">
-                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Identificação do Atendimento</span>
-                <p className="text-xs font-semibold text-slate-200 mt-1 truncate">
-                  {customerType === 'PARTICULAR' ? (
-                    <span>Cliente: <span className="text-brand-emerald font-bold">{particularClientName.trim() || 'Particular (Consumidor)'}</span></span>
-                  ) : (
-                    <span>Despachante: <span className="text-brand-emerald font-bold">{selectedClient?.name || 'Não Selecionado'}</span></span>
-                  )}
-                </p>
+            {/* Resumo de Valores */}
+            <div className="bg-gray-950/60 p-4 rounded-xl border border-gray-800 flex justify-between items-center">
+              <span className="text-gray-400 text-sm font-sans">Valor Total Geral:</span>
+              <span className="text-2xl font-black text-brand-emerald font-mono">
+                {DecimalMath.formatBRL(totals.netSum)}
+              </span>
+            </div>
+
+            {/* Opções de Pagamento (PIX, Dinheiro, Cartão, Boleto, etc) */}
+            <div className="space-y-3">
+              <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-gray-400 block">
+                Método de liquidação
+              </span>
+
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { id: 'PIX', label: 'PIX' },
+                  { id: 'CREDIT_CARD', label: 'Cartão de Crédito' },
+                  { id: 'DEBIT_CARD', label: 'Cartão de Débito' },
+                  { id: 'CASH', label: 'Dinheiro' },
+                  ...(customerType === 'B2B' && selectedClient?.category === 'Despachante Credenciado' ? [{ id: 'BOLETO', label: 'Faturamento de Guia' }] : [])
+                ].map(m => {
+                  const isActive = paymentMethod === m.id;
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => {
+                        setPaymentMethod(m.id as any);
+                        if (m.id === 'CASH') {
+                          setTimeout(() => {
+                            document.getElementById('received-amount')?.focus();
+                          }, 100);
+                        }
+                      }}
+                      className={`py-2 px-3 rounded-lg border text-xs text-left font-semibold transition-all flex items-center justify-between cursor-pointer ${isActive
+                        ? 'bg-brand-emerald/10 border-brand-emerald/40 text-brand-emerald font-bold'
+                        : 'bg-gray-950 border-gray-800 text-slate-350 hover:bg-gray-850'
+                        }`}
+                    >
+                      <span>{m.label}</span>
+                      {isActive && <div className="w-1.5 h-1.5 rounded-full bg-brand-emerald" />}
+                    </button>
+                  );
+                })}
               </div>
 
-              {/* Financial Totals Details */}
-              {(() => {
-                return (
-                  <div className="bg-brand-navy-deep/20 p-4 rounded-lg border border-brand-navy-bright/10 space-y-2 text-xs">
-                    <div className="flex justify-between items-center text-slate-400">
-                      <span className="font-sans font-medium text-slate-400">Subtotal de Serviços:</span>
-                      <span className="font-mono font-bold text-slate-200">
-                        {DecimalMath.formatBRL(DecimalMath.add(totals.detranSub, totals.outerSub))}
-                      </span>
+              {/* Mode Details Section */}
+              <div className="bg-gray-950/40 border border-gray-800/80 p-4 rounded-xl text-xs space-y-2">
+                {paymentMethod === 'PIX' && (
+                  <p className="text-[10px] text-gray-400 text-center font-mono py-2">
+                    PIX selecionado como forma de pagamento. Prossiga para encerrar o atendimento.
+                  </p>
+                )}
+
+                {paymentMethod === 'CREDIT_CARD' && (
+                  <div className="flex items-center justify-between gap-1.5">
+                    <div>
+                      <span className="text-[9px] text-gray-400 font-semibold block mb-1">Parcelas</span>
+                      <select
+                        value={installments}
+                        aria-label="Parcelas"
+                        onChange={(e) => setInstallments(parseInt(e.target.value))}
+                        className="bg-gray-900 border border-gray-800 rounded-md py-1 px-2.5 text-slate-200 text-xs focus:outline-none focus:border-brand-emerald"
+                      >
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(num => (
+                          <option key={num} value={num}>{num === 1 ? '1x (À Vista)' : `${num}x`}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <span className="text-[10px] font-semibold text-slate-355 font-mono text-right font-bold">
+                      {creditCardInstallmentText()}
+                    </span>
+                  </div>
+                )}
+
+                {paymentMethod === 'DEBIT_CARD' && (
+                  <p className="text-[10px] text-gray-400 text-center font-mono py-2">
+                    Aguardando inserção do cartão no terminal pinpad físico... (Taxa: 0.85%)
+                  </p>
+                )}
+
+                {paymentMethod === 'BOLETO' && (
+                  <p className="text-[10px] text-gray-400 text-center font-mono py-2">
+                    Faturado D+3 para Despachantes Credenciados. Liberação de guias permitida.
+                  </p>
+                )}
+
+                {paymentMethod === 'CASH' && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-gray-400 font-mono font-bold uppercase tracking-wider">Dinheiro recebido (R$):</span>
+                      <input
+                        id="received-amount"
+                        type="text"
+                        inputMode="decimal"
+                        pattern="[0-9]*[.,]?[0-9]*"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={cashReceived}
+                        onChange={(e) => {
+                          let cleanInput = e.target.value.replace(',', '.').replace(/[^0-9.]/g, '');
+                          const parts = cleanInput.split('.');
+                          if (parts.length > 2) {
+                            cleanInput = parts[0] + '.' + parts.slice(1).join('');
+                          }
+                          setCashReceived(cleanInput);
+                        }}
+                        className="w-24 bg-gray-900 border border-gray-800 rounded-md px-1.5 py-1 text-right font-mono text-xs text-slate-200 focus:outline-none focus:border-brand-emerald"
+                      />
                     </div>
 
-                    <div className="flex justify-between items-center text-slate-400">
-                      <span className="font-sans font-medium text-slate-455 text-[11px]">ISSQN (2% Passo Fundo):</span>
-                      <span className="font-mono text-slate-350 font-bold">{DecimalMath.formatBRL(totals.issqnValue)}</span>
-                    </div>
-
-                    <div className="border-t border-brand-navy-bright/10 pt-2.5 flex justify-between items-center">
-                      <span className="font-sans font-bold text-slate-100 uppercase text-[10px] tracking-wider">Valor Total Líquido:</span>
-                      <span className="text-lg font-black text-brand-emerald font-mono">
-                        {DecimalMath.formatBRL(totals.netSum)}
+                    <div className="flex justify-between items-center py-2 px-3 bg-gray-950/40 rounded-lg border border-gray-800/60 text-[11px] font-mono">
+                      <span className="text-gray-450 font-bold uppercase">Troco:</span>
+                      <span id="change-display" className={`font-black text-xs ${parseFloat(cashReceived.toString().replace(',', '.') || '0') >= parseFloat(totals.netSum.toString().replace(',', '.') || '0') ? 'text-brand-emerald animate-pulse' : 'text-red-400'}`}>
+                        {changeValue()}
                       </span>
                     </div>
                   </div>
-                );
-              })()}
-
-              {/* Integrated Finance Selector */}
-              <div className="space-y-3">
-                <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-slate-400 block">
-                  Método de liquidação do atendimento
-                </span>
-
-                <div className="grid grid-cols-2 gap-1.5">
-                  {[
-                    { id: 'PIX', label: 'PIX' },
-                    { id: 'CREDIT_CARD', label: 'Cartão de Crédito' },
-                    { id: 'DEBIT_CARD', label: 'Cartão de Débito' },
-                    { id: 'CASH', label: 'Dinheiro' },
-                    ...(customerType === 'B2B' && selectedClient?.category === 'Despachante Credenciado' ? [{ id: 'BOLETO', label: 'Faturamento de Guia' }] : [])
-                  ].map(m => {
-                    const isActive = paymentMethod === m.id;
-                    return (
-                      <button
-                        key={m.id}
-                        type="button"
-                        onClick={() => {
-                          setPaymentMethod(m.id as any);
-                          if (m.id === 'CASH') {
-                            setTimeout(() => {
-                              document.getElementById('received-amount')?.focus();
-                            }, 100);
-                          }
-                        }}
-                        className={`py-2 px-3 rounded-lg border text-[11px] text-left font-semibold transition-all flex items-center justify-between cursor-pointer ${isActive
-                          ? 'bg-brand-emerald/10 border-brand-emerald/40 text-brand-emerald'
-                          : 'bg-brand-navy-deep border-brand-navy-bright/10 text-slate-300 hover:bg-slate-800'
-                          }`}
-                      >
-                        <span>{m.label}</span>
-                        {isActive && <div className="w-1.5 h-1.5 rounded-full bg-brand-emerald" />}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Mode Details Section */}
-                <div className="bg-brand-navy-deep/40 border border-brand-navy-bright/10 p-4 rounded-lg text-xs space-y-2">
-
-                  {paymentMethod === 'PIX' && (
-                    <p className="text-[10px] text-slate-400 text-center font-mono py-4">
-                      PIX selecionado como forma de pagamento. Prossiga para encerrar o atendimento.
-                    </p>
-                  )}
-
-                  {paymentMethod === 'CREDIT_CARD' && (
-                    <div className="flex items-center justify-between gap-1.5">
-                      <div>
-                        <span className="text-[9px] text-slate-400 font-semibold block mb-1">Prestações</span>
-                        <select
-                          value={installments}
-                          aria-label="Parcelas"
-                          onChange={(e) => setInstallments(parseInt(e.target.value))}
-                          className="bg-brand-navy-card border border-brand-navy-bright/10 rounded-md py-1 px-2.5 text-slate-200 text-xs focus:outline-none"
-                        >
-                          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(num => (
-                            <option key={num} value={num}>{num === 1 ? '1x (À Vista)' : `${num}x`}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <span className="text-[10px] font-semibold text-slate-300 font-mono text-right font-bold">
-                        {creditCardInstallmentText()}
-                      </span>
-                    </div>
-                  )}
-
-                  {paymentMethod === 'DEBIT_CARD' && (
-                    <p className="text-[10px] text-slate-400 text-center font-mono">
-                      Aguardando inserção do cartão no terminal pinpad físico... (Taxa: 0.85%)
-                    </p>
-                  )}
-
-                  {paymentMethod === 'BOLETO' && (
-                    <p className="text-[10px] text-slate-400 text-center font-mono">
-                      Faturado D+3 para Despachantes Credenciados. Liberação de guias permitida.
-                    </p>
-                  )}
-
-                  {paymentMethod === 'CASH' && (
-                    <div className="space-y-2.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] text-slate-400 font-mono font-bold uppercase tracking-wider">Dinheiro recebido (R$):</span>
-                        <input
-                          id="received-amount"
-                          type="text"
-                          inputMode="decimal"
-                          pattern="[0-9]*[.,]?[0-9]*"
-                          step="0.01"
-                          placeholder="0.00"
-                          value={cashReceived}
-                          onChange={(e) => {
-                            let cleanInput = e.target.value.replace(',', '.').replace(/[^0-9.]/g, '');
-                            const parts = cleanInput.split('.');
-                            if (parts.length > 2) {
-                              cleanInput = parts[0] + '.' + parts.slice(1).join('');
-                            }
-                            setCashReceived(cleanInput);
-                          }}
-                          className="w-24 bg-brand-navy-card border border-brand-navy-bright/30 rounded-md px-1.5 py-1 text-right font-mono text-xs text-slate-200 focus:outline-none focus:border-brand-emerald/75 transition-all font-bold shadow-inner"
-                        />
-                      </div>
-
-                      {/* EXIBIÇÃO DO TROCO EM JETBRAINS MONO */}
-                      <div className="flex justify-between items-center py-2 px-3 bg-brand-navy-deep/40 rounded-lg border border-brand-navy-bright/10 text-[11px] font-mono">
-                        <span className="text-slate-400 font-extrabold uppercase">Troco:</span>
-                        <span id="change-display" className={`font-black text-xs ${parseFloat(cashReceived.toString().replace(',', '.') || '0') >= parseFloat(totals.netSum.toString().replace(',', '.') || '0') ? 'text-brand-emerald animate-pulse' : 'text-red-400'}`}>
-                          {changeValue()}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                </div>
+                )}
               </div>
 
-            </div>
-
-            {/* Modal Footer / Action Button */}
-            <div className="p-5 bg-brand-navy-deep/40 border-t border-brand-navy-bright flex flex-col gap-2">
+              {/* BOTÃO CONFIRMAR E EMITIR CUPOM */}
               <button
                 id="checkout-finalize-btn"
                 type="button"
                 disabled={isCheckoutDisabled}
                 onClick={handleFinishTransaction}
-                className="w-full py-3.5 bg-brand-emerald hover:bg-emerald-400 text-brand-navy-deep font-sans font-bold text-xs rounded-lg transition cursor-pointer shadow-lg shadow-brand-emerald/10 hover:shadow-brand-emerald/20 flex items-center justify-center gap-1.5 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed"
+                className="w-full mt-4 py-3.5 bg-brand-emerald hover:bg-emerald-400 text-brand-navy-deep font-sans font-bold text-xs rounded-xl transition cursor-pointer shadow-lg shadow-brand-emerald/10 hover:shadow-brand-emerald/20 flex items-center justify-center gap-1.5 disabled:bg-gray-850 disabled:text-gray-600 disabled:border-gray-800 disabled:cursor-not-allowed"
                 title={
                   isCashInsufficient
                     ? 'Dinheiro pago pelo cliente insuficiente para cobrir o total geral da sacola.'
@@ -3056,13 +3027,15 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
                 <CheckSquare className="w-4 h-4" />
                 Encerrar Atendimento e Emitir Cupom
               </button>
+            </div>
 
+            {/* BOTÃO DE CANCELAMENTO / VOLTAR À SACOLA */}
+            <div className="pt-2 border-t border-gray-800">
               <button
-                type="button"
                 onClick={() => setCheckoutStage('CART')}
-                className="w-full py-3 bg-slate-800 hover:bg-red-950/40 border border-red-500/20 text-red-400 hover:text-red-350 font-sans font-bold text-xs rounded-lg transition flex items-center justify-center gap-1.5 cursor-pointer"
+                className="w-full py-3 bg-red-950/30 hover:bg-red-900/40 text-red-400 border border-red-800/40 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
-                ⬅️ Cancelar e Voltar para a Sacola
+                ⬅️ Cancelar Pagamento e Voltar para a Sacola
               </button>
             </div>
 
