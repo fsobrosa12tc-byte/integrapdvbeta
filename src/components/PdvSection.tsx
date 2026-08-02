@@ -332,8 +332,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
       const { data: refreshedHistory, error: historyErr } = await supabase
         .from('transacoes')
         .select('id, valor_bruto, valor_liquido, criado_em, operador_email, itens, cliente_nome, forma_pagamento, status_conciliacao, status, despachante_id')
-        .eq('forma_pagamento', 'BOLETO')
-        .or('status_conciliacao.eq.PENDING,status_conciliacao.eq.PENDENTE,status.eq.PENDENTE,status.eq.PENDING')
+        .eq('status', 'PENDENTE')
         .order('criado_em', { ascending: false });
 
       if (!historyErr && refreshedHistory) {
@@ -402,8 +401,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
       const { data, error } = await supabase
         .from('transacoes')
         .select('id, valor_bruto, valor_liquido, criado_em, operador_email, itens, cliente_nome, forma_pagamento, status_conciliacao, status, despachante_id')
-        .eq('forma_pagamento', 'BOLETO')
-        .or('status_conciliacao.eq.PENDING,status_conciliacao.eq.PENDENTE,status.eq.PENDENTE,status.eq.PENDING')
+        .eq('status', 'PENDENTE')
         .order('criado_em', { ascending: false });
 
       if (error) throw error;
@@ -1066,6 +1064,27 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
   // --- FINISH ORDER ---
   const handleFinishTransaction = () => {
     if (!selectedClient) return;
+
+    // Regra de Validação B2B: aborta a transação se despachante_id for nulo no modo Faturamento de Guia
+    if (paymentMethod === 'BOLETO') {
+      if (!selectedClient.id || selectedClient.id === 'particular-temp') {
+        if (addToast) {
+          addToast(
+            'Erro de Validação',
+            'Falha no Relacionamento B2B: Selecione um despachante credenciado para efetuar o Faturamento de Guia.',
+            'alert'
+          );
+        } else {
+          showToast(
+            'Erro de Validação',
+            'Falha no Relacionamento B2B: Selecione um despachante credenciado para efetuar o Faturamento de Guia.',
+            'alert'
+          );
+        }
+        return; // Aborta
+      }
+    }
+
     if (cart.length === 0) return;
 
     // Constrói objeto de transação real simulado com RLS
@@ -1109,8 +1128,11 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
         userRole: rlsSession?.userRole || 'Operador',
         rlsScope: rlsSession?.rlsPolicyApplied || ''
       },
-      overrideLogs: activeOverrideLogs
-    };
+      overrideLogs: activeOverrideLogs,
+      // Propriedades B2B adicionais para persistência atômica no Supabase
+      despachante_id: paymentMethod === 'BOLETO' ? selectedClient.id : null,
+      is_convenio: paymentMethod === 'BOLETO' ? true : false
+    } as any;
 
     // Liquidate debtor balance if this is a Convênio payment
     const hasConvenioItem = cart.some(item => item.service.type === 'CONVÊNIO');

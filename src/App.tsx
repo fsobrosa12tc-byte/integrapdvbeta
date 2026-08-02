@@ -406,10 +406,10 @@ export default function App() {
       }));
 
       setClients(clientData.map((c: any) => {
-        // Encontra transações ativas do despachante na tabela transacoes (forma_pagamento = BOLETO e pendente)
+        // Encontra transações ativas do despachante na tabela transacoes que estão PENDENTES e são de convênio ou tipo guia
         const txsDoDespachante = (txData || []).filter((tx: any) => 
-          tx.forma_pagamento === 'BOLETO' && 
-          (tx.status_conciliacao === 'PENDING' || tx.status_conciliacao === 'PENDENTE' || tx.status === 'PENDENTE') &&
+          tx.status === 'PENDENTE' &&
+          (tx.is_convenio === true || tx.tipo === 'GUIA') &&
           (tx.despachante_id === c.id || (() => {
             // Fallback por CNPJ ou nome para dados legados (como a transação 1d47 original)
             const rawClientName = tx.cliente_nome || '';
@@ -967,6 +967,19 @@ export default function App() {
       (c.cpfCnpj && newTx.clientCpfCnpj && c.cpfCnpj.replace(/[^\d]/g, '') === newTx.clientCpfCnpj.replace(/[^\d]/g, ''))
     );
 
+    const isB2BConvenio = newTx.paymentMethod === 'BOLETO';
+    const despachanteUuid = targetClientForTx ? targetClientForTx.id : (newTx as any).despachante_id || null;
+
+    // Regra de Validação B2B: aborta a transação e lança erro de validação se despachante_id for nulo
+    if (isB2BConvenio && (!despachanteUuid || despachanteUuid === 'particular-temp')) {
+      addToast(
+        'Erro de Validação',
+        'Falha no Relacionamento B2B: O lançamento no modo Faturamento de Guia exige obrigatoriamente um despachante parceiro credenciado.',
+        'alert'
+      );
+      return; // Aborta
+    }
+
     // Criamos o objeto de payload completo incluindo terminal_id, data_operacional e horario (reconciliados de forma nativa)
     const mappedTx: any = {
       id: newTx.id,
@@ -980,8 +993,8 @@ export default function App() {
       issqn: parseFloat(calculatedIssqn),
       hash_auditoria: '',
       itens: newTx.items,
-      status_conciliacao: newTx.paymentMethod === 'BOLETO' ? 'PENDING' : (newTx.status || 'PAID'),
-      status: newTx.paymentMethod === 'BOLETO' ? 'PENDENTE' : undefined,
+      status_conciliacao: isB2BConvenio ? 'PENDING' : (newTx.status || 'PAID'),
+      status: isB2BConvenio ? 'PENDENTE' : 'PAGO',
       turno_id: newTx.turno_id || caixaState?.turno_id || null,
       data_operacional: (() => {
         try {
@@ -993,10 +1006,11 @@ export default function App() {
         return new Date().toISOString().split('T')[0];
       })(),
       horario: new Date().toLocaleTimeString('pt-BR'),
-      despachante_id: targetClientForTx ? targetClientForTx.id : null,
-      tipo: newTx.paymentMethod === 'BOLETO' ? 'GUIA_CONVENIO' : undefined,
-      categoria: newTx.paymentMethod === 'BOLETO' ? 'GUIA_CONVENIO' : undefined,
-      valor_total: newTx.paymentMethod === 'BOLETO' ? parseFloat(valLiquido) : undefined
+      despachante_id: despachanteUuid,
+      is_convenio: isB2BConvenio ? true : false,
+      tipo: isB2BConvenio ? 'GUIA' : undefined,
+      categoria: isB2BConvenio ? 'GUIA_CONVENIO' : undefined,
+      valor_total: isB2BConvenio ? parseFloat(valLiquido) : undefined
     };
 
     try {
@@ -1222,7 +1236,7 @@ export default function App() {
             // Atualizar transacoes correspondentes
             const { error: updateTxsError } = await supabase
               .from('transacoes')
-              .update({ status_conciliacao: 'PAID' })
+              .update({ status_conciliacao: 'PAID', status: 'PAGO' })
               .in('id', guiasIdsToPay);
 
             if (updateTxsError) {
@@ -1254,7 +1268,7 @@ export default function App() {
               // Atualizar transacoes correspondentes
               const { error: updateTxsError } = await supabase
                 .from('transacoes')
-                .update({ status_conciliacao: 'PAID' })
+                .update({ status_conciliacao: 'PAID', status: 'PAGO' })
                 .in('id', guiasIdsToPay);
 
               if (updateTxsError) {
@@ -1400,7 +1414,7 @@ export default function App() {
       try {
         const { error } = await supabase
           .from('transacoes')
-          .update({ status_conciliacao: 'CANCELLED' })
+          .update({ status_conciliacao: 'CANCELLED', status: 'CANCELADO' })
           .eq('id', txId);
 
         if (error) throw error;
@@ -1469,10 +1483,10 @@ export default function App() {
                 .update({ status: 'PENDENTE', data_pagamento: null })
                 .in('id', guiasIdsToRevert);
 
-              // E também as transações correspondentes na tabela transacoes voltam para PENDING
+              // E também as transações correspondentes na tabela transacoes voltam para PENDING e PENDENTE
               await supabase
                 .from('transacoes')
-                .update({ status_conciliacao: 'PENDING' })
+                .update({ status_conciliacao: 'PENDING', status: 'PENDENTE' })
                 .in('id', guiasIdsToRevert);
             } else {
               // Reverte todas as guias do despachante que foram pagas (pelo timestamp aproximado ou simplesmente as do despachante que estão PAGO)
@@ -1491,7 +1505,7 @@ export default function App() {
 
                 await supabase
                   .from('transacoes')
-                  .update({ status_conciliacao: 'PENDING' })
+                  .update({ status_conciliacao: 'PENDING', status: 'PENDENTE' })
                   .in('id', paidIds);
               }
             }
