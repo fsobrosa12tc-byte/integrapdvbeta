@@ -265,6 +265,15 @@ export default function App() {
         .order('horario', { ascending: false });
       if (turnosError) throw turnosError;
 
+      // 4. Buscar guias de faturamento
+      const { data: guiasData, error: guiasError } = await supabase
+        .from('faturamento_guias')
+        .select('*');
+      if (guiasError) {
+        console.warn('Erro ao buscar faturamento_guias:', guiasError);
+      }
+      const safeGuias = guiasData || [];
+
       // Validação estrita contra nulos ou indefinidos (Anti-Zeroing) antes de atualizar os estados
       if (!txData || !clientData || !turnosData) {
         console.warn('Dados inválidos ou incompletos recebidos do Supabase. Ignorando atualização de estados.');
@@ -343,20 +352,12 @@ export default function App() {
       }));
 
       setClients(clientData.map((c: any) => {
-        // FONTE DE VERDADE: usa saldo_devedor diretamente da DB (atualizado em tempo real por handleAddTransaction)
-        // Não recalcular a partir das transações para evitar conflito de lógica com pagamentos de convênio
-        const finalOutstanding = parseFloat(c.saldo_devedor || '0') < 0 ? '0.00' : parseFloat(c.saldo_devedor || '0').toFixed(2);
+        const guiasDoDespachante = safeGuias.filter((g: any) => g.despachante_id === c.id);
+        const guiasPendentesObj = guiasDoDespachante.filter((g: any) => g.status === 'PENDENTE');
 
-        // Conta guias pendentes: qualquer transação BOLETO ativa do despachante (não apenas type CONVÊNIO)
-        const guiasPendentesCount = txData.filter((tx: any) => {
-          if (tx.status_conciliacao === 'CANCELLED' || tx.status === 'CANCELLED') return false;
-          if (tx.forma_pagamento !== 'BOLETO') return false;
-          const rawClientName = tx.cliente_nome || '';
-          const cpfCnpjMatch = rawClientName.match(/\((?:CPF|CNPJ):\s*([^\)]+)\)/i);
-          const clientCpfCnpj = cpfCnpjMatch ? cpfCnpjMatch[1].trim() : '000.000.000-00';
-          const clientName = rawClientName.replace(/\s*\((?:CPF|CNPJ):[^\)]+\)/i, '').trim();
-          return (clientCpfCnpj !== '000.000.000-00' && clientCpfCnpj === c.cnpj) || clientName === c.razao_social;
-        }).length;
+        // outstandingBalance é a soma do valor_total das guias com status PENDENTE
+        const pendingSum = guiasPendentesObj.reduce((sum: number, g: any) => sum + parseFloat(g.valor_total || '0'), 0);
+        const finalOutstanding = pendingSum.toFixed(2);
 
         return {
           id: c.id,
@@ -364,7 +365,7 @@ export default function App() {
           cpfCnpj: c.cnpj,
           phone: c.telefone,
           outstandingBalance: finalOutstanding,
-          guiasPendentes: guiasPendentesCount,
+          guiasPendentes: guiasPendentesObj.length,
           category: 'Despachante Credenciado',
           status: 'Ativo'
         };
@@ -1076,6 +1077,19 @@ export default function App() {
 
           if (balanceError) throw balanceError;
 
+          // Inserir a guia correspondente na tabela faturamento_guias
+          const { error: insertGuiaError } = await supabase
+            .from('faturamento_guias')
+            .insert([{
+              despachante_id: targetClient.id,
+              valor_total: parseFloat(newTx.netTotal),
+              status: 'PENDENTE'
+            }]);
+
+          if (insertGuiaError) {
+            console.error("Erro ao registrar guia correspondente no faturamento_guias:", insertGuiaError);
+          }
+
           setClients(prevClients =>
             prevClients.map(c => c.id === targetClient.id ? { ...c, outstandingBalance: nextBal } : c)
           );
@@ -1098,6 +1112,39 @@ export default function App() {
             .eq('id', targetClient.id);
 
           if (balanceError) throw balanceError;
+
+          // Verificar se estamos pagando uma guia específica ou a conta consolidada
+          const guiaItems = (newTx.items || []).filter((item: any) => item.id?.startsWith("srv-convenio-guia-"));
+
+          if (guiaItems.length > 0) {
+            // Pagamento de guia específica
+            const guiasIdsToPay = guiaItems.map((item: any) => item.id.replace("srv-convenio-guia-", ""));
+            const { error: updateGuiasError } = await supabase
+              .from('faturamento_guias')
+              .update({
+                status: 'PAGO',
+                data_pagamento: new Date().toISOString()
+              })
+              .in('id', guiasIdsToPay);
+
+            if (updateGuiasError) {
+              console.error("Erro ao atualizar guias individuais para PAGO:", updateGuiasError);
+            }
+          } else {
+            // Pagamento de todas as guias do despachante
+            const { error: updateGuiasError } = await supabase
+              .from('faturamento_guias')
+              .update({
+                status: 'PAGO',
+                data_pagamento: new Date().toISOString()
+              })
+              .eq('despachante_id', targetClient.id)
+              .eq('status', 'PENDENTE');
+
+            if (updateGuiasError) {
+              console.error("Erro ao atualizar todas as guias para PAGO:", updateGuiasError);
+            }
+          }
 
           setClients(prevClients =>
             prevClients.map(c => c.id === targetClient.id ? { ...c, outstandingBalance: safeBal } : c)
@@ -2217,8 +2264,8 @@ export default function App() {
                   id="pdv-checkout-tab-btn"
                   onClick={() => setActiveTab('PDV')}
                   className={`px-4 py-1.5 rounded text-xs font-semibold tracking-wide flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'PDV'
-                      ? 'bg-brand-emerald text-brand-navy-deep font-bold shadow'
-                      : 'text-slate-400 hover:text-slate-200'
+                    ? 'bg-brand-emerald text-brand-navy-deep font-bold shadow'
+                    : 'text-slate-400 hover:text-slate-200'
                     }`}
                 >
                   <ShoppingBag className="w-4 h-4" />
@@ -2232,8 +2279,8 @@ export default function App() {
                       setActiveTab('DASHBOARD');
                     }}
                     className={`px-4 py-1.5 rounded text-xs font-semibold tracking-wide flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'DASHBOARD'
-                        ? 'bg-brand-emerald text-brand-navy-deep font-bold shadow'
-                        : 'text-slate-400 hover:text-slate-200'
+                      ? 'bg-brand-emerald text-brand-navy-deep font-bold shadow'
+                      : 'text-slate-400 hover:text-slate-200'
                       }`}
                     title="Visualizar Fluxo de Caixa"
                   >
@@ -2254,8 +2301,8 @@ export default function App() {
                       setCashOpReason('');
                     }}
                     className={`px-3 py-1.5 text-xs font-semibold rounded-lg border font-mono transition-all flex items-center gap-1.5 cursor-pointer ${showSuprimentoForm
-                        ? 'bg-brand-emerald/20 border-brand-emerald text-brand-emerald'
-                        : 'bg-brand-navy-deep border-brand-navy-bright/10 text-slate-300 hover:text-slate-100'
+                      ? 'bg-brand-emerald/20 border-brand-emerald text-brand-emerald'
+                      : 'bg-brand-navy-deep border-brand-navy-bright/10 text-slate-300 hover:text-slate-100'
                       }`}
                   >
                     <Coins className="w-4 h-4 text-brand-emerald" />
@@ -2271,8 +2318,8 @@ export default function App() {
                       setCashOpReason('');
                     }}
                     className={`px-3 py-1.5 text-xs font-semibold rounded-lg border font-mono transition-all flex items-center gap-1.5 cursor-pointer ${showSangriaForm
-                        ? 'bg-red-500/20 border-red-500/80 text-red-400'
-                        : 'bg-brand-navy-deep border-brand-navy-bright/10 text-slate-300 hover:text-slate-100'
+                      ? 'bg-red-500/20 border-red-500/80 text-red-400'
+                      : 'bg-brand-navy-deep border-brand-navy-bright/10 text-slate-300 hover:text-slate-100'
                       }`}
                   >
                     <DollarSign className="w-4 h-4 text-red-400" />
@@ -2385,6 +2432,7 @@ export default function App() {
               onAlternarOperador={() => setShowAlternarModal(true)}
               caixaState={caixaState}
               addToast={addToast}
+              onRefreshData={async () => { await fetchInitialData(true); }}
             />
           </div>
         ) : (
@@ -2949,8 +2997,8 @@ export default function App() {
                   2.2. Auditoria de Paridade & Divergência
                 </h3>
                 <div className={`p-4 rounded-xl border font-mono text-xs flex flex-col md:flex-row md:items-center justify-between gap-4 ${printReport.status === 'Conciliado'
-                    ? 'bg-brand-emerald/10 border-brand-emerald/30 text-brand-emerald'
-                    : 'bg-red-500/10 border-red-500/30 text-red-400'
+                  ? 'bg-brand-emerald/10 border-brand-emerald/30 text-brand-emerald'
+                  : 'bg-red-500/10 border-red-500/30 text-red-400'
                   } print:border-black/40 print:text-black print:bg-transparent`}>
                   <div className="space-y-1 text-slate-300 print:text-black">
                     <span className="text-[10px] uppercase font-bold text-slate-400 print:text-black">Divergência Apurada</span>
@@ -2960,8 +3008,8 @@ export default function App() {
                   <div className="text-right">
                     <span className="text-[10px] uppercase font-bold text-slate-400 print:text-black block mb-1">Status Governança</span>
                     <span className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase ${printReport.status === 'Conciliado'
-                        ? 'bg-brand-emerald/20 text-brand-emerald border border-brand-emerald/30'
-                        : 'bg-red-500/20 text-red-500 border border-red-500/30'
+                      ? 'bg-brand-emerald/20 text-brand-emerald border border-brand-emerald/30'
+                      : 'bg-red-500/20 text-red-500 border border-red-500/30'
                       } print:text-black print:border-black print:bg-transparent`}>
                       {printReport.status === 'Conciliado' ? 'CAIXA INTEGRALMENTE CONCILIADO' : 'ATENÇÃO: INCONSISTÊNCIA DETECTADA'}
                     </span>

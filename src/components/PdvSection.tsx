@@ -23,6 +23,7 @@ interface PdvSectionProps {
   onAlternarOperador?: () => void;
   caixaState?: CaixaState;
   addToast?: (title: string, message: string, type?: 'success' | 'info' | 'alert') => void;
+  onRefreshData?: () => Promise<void>;
 }
 
 const PORTARIA_45_SERVICES = [
@@ -61,7 +62,7 @@ const PORTARIA_45_SERVICES = [
   { name: 'Reimpressão: Reimpressão de GAD-E', type: 'GERAL', base_value: '6.50', description: 'Portaria 45/2026' }
 ];
 
-export default function PdvSection({ onAddTransaction, rlsSession, clients, setClients, isMaster = false, onAlternarOperador, caixaState, addToast }: PdvSectionProps) {
+export default function PdvSection({ onAddTransaction, rlsSession, clients, setClients, isMaster = false, onAlternarOperador, caixaState, addToast, onRefreshData }: PdvSectionProps) {
   const isLockedForSupervisor = !!(caixaState && caixaState?.status === 'aberto' && (rlsSession?.userRole === 'Gerente' || rlsSession?.userRole === 'Financeiro'));
 
   const showToast = (title: string, message: string, type: 'success' | 'info' | 'alert' = 'info') => {
@@ -229,6 +230,105 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
   const [selectedDebtor, setSelectedDebtor] = useState<ClientProfile | null>(null);
   const [debtorHistory, setDebtorHistory] = useState<any[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [newGuideValue, setNewGuideValue] = useState('R$ 0,00');
+  const [isLaunchingGuide, setIsLaunchingGuide] = useState(false);
+
+  const handleLaunchNewGuide = async (client: ClientProfile) => {
+    if (isLaunchingGuide) return;
+    const floatStr = parseBRLMaskToFloatStr(newGuideValue);
+    const valFloat = parseFloat(floatStr);
+    if (isNaN(valFloat) || valFloat <= 0) {
+      showToast('Valor Inválido', 'Por favor, digite um valor maior que R$ 0,00 para a guia.', 'alert');
+      return;
+    }
+
+    setIsLaunchingGuide(true);
+    try {
+      // 1. Insere a guia no faturamento_guias
+      const { error: insertError } = await supabase
+        .from('faturamento_guias')
+        .insert([{
+          despachante_id: client.id,
+          valor_total: valFloat,
+          status: 'PENDENTE'
+        }]);
+
+      if (insertError) throw insertError;
+
+      // 2. Atualiza o saldo_devedor na tabela despachantes
+      const currentBal = parseFloat(client.outstandingBalance || '0');
+      const nextBal = (currentBal + valFloat).toFixed(2);
+
+      const { error: balanceError } = await supabase
+        .from('despachantes')
+        .update({ saldo_devedor: nextBal })
+        .eq('id', client.id);
+
+      if (balanceError) throw balanceError;
+
+      showToast('Guia Registrada', `Guia de ${DecimalMath.formatBRL(floatStr)} lançada com sucesso no convênio de ${client.name}.`, 'success');
+      setNewGuideValue('R$ 0,00');
+
+      // 3. Força atualização reativa imediata
+      if (onRefreshData) {
+        await onRefreshData();
+      }
+
+      // Recarregar o histórico de débitos local
+      const updatedClient = {
+        ...client,
+        outstandingBalance: nextBal,
+        guiasPendentes: (client.guiasPendentes || 0) + 1
+      };
+
+      setClients(prev => prev.map(c => c.id === client.id ? updatedClient : c));
+      setSelectedDebtor(updatedClient);
+
+      // Re-busca o histórico de guias pendentes do despachante a partir da faturamento_guias
+      setIsLoadingHistory(true);
+      const { data: refreshedHistory, error: historyErr } = await supabase
+        .from('faturamento_guias')
+        .select('*')
+        .eq('despachante_id', client.id)
+        .eq('status', 'PENDENTE')
+        .order('criado_em', { ascending: false });
+
+      if (!historyErr && refreshedHistory) {
+        setDebtorHistory(refreshedHistory);
+      }
+    } catch (err: any) {
+      showToast('Erro ao Salvar', `Falha ao registrar guia: ${err.message || err}`, 'alert');
+    } finally {
+      setIsLaunchingGuide(false);
+      setIsLoadingHistory(false);
+    }
+  };
+
+  const handlePaySingleGuide = (guia: any, client: ClientProfile) => {
+    // Setup checkout details
+    setSelectedClient(client);
+    setCustomerType('B2B');
+
+    const debtService: ServiceItem = {
+      id: `srv-convenio-guia-${guia.id}`,
+      name: `Faturamento de Guia - Convênio`,
+      type: `CONVÊNIO`,
+      description: `Guia avulsa pendente. ID da Guia: ${guia.id}`,
+      baseValue: '0.00'
+    };
+
+    const cartItem: SelectedService = {
+      service: debtService,
+      quantity: 1,
+      customValue: parseFloat(guia.valor_total || '0').toFixed(2)
+    };
+
+    setCart([cartItem]);
+    setPaymentMethod('PIX'); // Default to PIX for quitação
+    setCheckoutStage('CART'); // Redirect focus directly to checkout view
+
+    showToast('Guia Carregada', `A guia no valor de ${DecimalMath.formatBRL(guia.valor_total)} foi adicionada à sacola.`, 'info');
+  };
 
   const handleSelectDebtor = async (client: ClientProfile) => {
     if (selectedDebtor?.id === client.id) {
@@ -1071,8 +1171,8 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
                 type="button"
                 onClick={() => setAtendimentoMode('LANCHAMENTO')}
                 className={`px-3 py-1.5 font-bold rounded-lg transition-all cursor-pointer ${atendimentoMode === 'LANCHAMENTO'
-                    ? 'bg-brand-emerald text-brand-navy-deep shadow-sm shadow-brand-emerald/10'
-                    : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-brand-emerald text-brand-navy-deep shadow-sm shadow-brand-emerald/10'
+                  : 'text-slate-400 hover:text-slate-200'
                   }`}
               >
                 Lançamento Expresso
@@ -1082,8 +1182,8 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
                 id="tab-convenio-btn"
                 onClick={() => setAtendimentoMode('FATURAMENTO_GUIA')}
                 className={`px-3 py-1.5 font-bold rounded-lg transition-all cursor-pointer ${atendimentoMode === 'FATURAMENTO_GUIA'
-                    ? 'bg-brand-emerald text-brand-navy-deep shadow-sm shadow-brand-emerald/10'
-                    : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-brand-emerald text-brand-navy-deep shadow-sm shadow-brand-emerald/10'
+                  : 'text-slate-400 hover:text-slate-200'
                   }`}
               >
                 Faturamento de Guia
@@ -1352,8 +1452,8 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
                       type="button"
                       onClick={() => handleTransitionCustomerType('PARTICULAR')}
                       className={`px-3 py-1.5 text-[11px] font-semibold rounded-md transition-all cursor-pointer ${customerType === 'PARTICULAR'
-                          ? 'bg-brand-emerald text-brand-navy-deep shadow-sm shadow-brand-emerald/10'
-                          : 'text-slate-400 hover:text-slate-200'
+                        ? 'bg-brand-emerald text-brand-navy-deep shadow-sm shadow-brand-emerald/10'
+                        : 'text-slate-400 hover:text-slate-200'
                         }`}
                     >
                       Cliente particular
@@ -1362,8 +1462,8 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
                       type="button"
                       onClick={() => handleTransitionCustomerType('B2B')}
                       className={`px-3 py-1.5 text-[11px] font-semibold rounded-md transition-all cursor-pointer ${customerType === 'B2B'
-                          ? 'bg-brand-emerald text-brand-navy-deep shadow-sm shadow-brand-emerald/10'
-                          : 'text-slate-400 hover:text-slate-200'
+                        ? 'bg-brand-emerald text-brand-navy-deep shadow-sm shadow-brand-emerald/10'
+                        : 'text-slate-400 hover:text-slate-200'
                         }`}
                     >
                       Despachante B2B
@@ -1512,8 +1612,8 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
                               <tr
                                 onClick={() => handleSelectDebtor(client)}
                                 className={`cursor-pointer transition-colors ${isSelected
-                                    ? 'bg-brand-emerald/10 text-brand-emerald'
-                                    : 'hover:bg-brand-navy-deep/40 text-slate-300'
+                                  ? 'bg-brand-emerald/10 text-brand-emerald'
+                                  : 'hover:bg-brand-navy-deep/40 text-slate-300'
                                   }`}
                               >
                                 <td className="px-4 py-3">
@@ -1532,25 +1632,72 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
                               {isSelected && (
                                 <tr>
                                   <td colSpan={3} className="px-4 py-4 bg-brand-navy-deep/60 border-t border-brand-navy-bright/10">
-                                    <div className="space-y-3">
-                                      <h4 className="text-[11px] font-bold text-brand-emerald uppercase tracking-wider">Histórico de Lançamentos em Aberto</h4>
-                                      {isLoadingHistory ? (
-                                        <div className="text-xs text-slate-400">Carregando detalhes...</div>
-                                      ) : debtorHistory.length > 0 ? (
-                                        <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
-                                          {debtorHistory.map(tx => (
-                                            <div key={tx.id} className="flex justify-between items-center bg-brand-navy-bright/20 p-2 rounded-lg border border-brand-navy-bright/10">
-                                              <div className="flex flex-col">
-                                                <span className="text-xs text-slate-200 font-medium">{new Date(tx.criado_em).toLocaleString('pt-BR')}</span>
-                                                <span className="text-[10px] text-slate-400 font-mono">Operador: {tx.operador_email}</span>
-                                              </div>
-                                              <span className="text-brand-emerald font-bold font-mono text-xs">{DecimalMath.formatBRL(tx.valor_liquido || tx.valor_bruto || '0')}</span>
-                                            </div>
-                                          ))}
+                                    <div className="space-y-4">
+
+                                      {/* Formulário de Lançamento de Guia */}
+                                      <div className="bg-brand-navy-deep/40 p-3 rounded-lg border border-brand-navy-bright/10 space-y-2">
+                                        <span className="text-[10px] font-mono font-bold text-brand-emerald uppercase tracking-wider block">
+                                          Lançar Nova Guia no Convênio
+                                        </span>
+                                        <div className="flex gap-2">
+                                          <div className="relative flex-1">
+                                            <input
+                                              type="text"
+                                              placeholder="R$ 0,00"
+                                              value={newGuideValue}
+                                              onChange={(e) => setNewGuideValue(formatBRLMask(e.target.value))}
+                                              className="w-full bg-slate-950 border border-brand-navy-bright rounded-lg py-1.5 px-3 text-xs font-mono font-bold text-slate-100 focus:outline-none focus:border-brand-emerald"
+                                            />
+                                          </div>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleLaunchNewGuide(client)}
+                                            disabled={isLaunchingGuide}
+                                            className="px-4 py-1.5 bg-brand-emerald text-brand-navy-deep font-bold rounded-lg text-xs hover:bg-emerald-400 cursor-pointer disabled:opacity-50"
+                                          >
+                                            {isLaunchingGuide ? 'Registrando...' : 'Lançar Guia'}
+                                          </button>
                                         </div>
-                                      ) : (
-                                        <div className="text-xs text-slate-400">Nenhum detalhe encontrado para o saldo atual.</div>
-                                      )}
+                                      </div>
+
+                                      {/* Resumo da Dívida Atual Consolidada */}
+                                      <div className="flex justify-between items-center py-2 border-b border-brand-navy-bright/10">
+                                        <span className="text-xs font-sans text-slate-350">Dívida Consolidada Atual:</span>
+                                        <span className="text-xs font-mono font-extrabold text-red-400">
+                                          {DecimalMath.formatBRL(debtorHistory.reduce((sum, item) => sum + parseFloat(item.valor_total || '0'), 0).toFixed(2))}
+                                        </span>
+                                      </div>
+
+                                      <div className="space-y-3">
+                                        <h4 className="text-[11px] font-bold text-brand-emerald uppercase tracking-wider">Histórico de Lançamentos em Aberto</h4>
+                                        {isLoadingHistory ? (
+                                          <div className="text-xs text-slate-400">Carregando detalhes...</div>
+                                        ) : debtorHistory.length > 0 ? (
+                                          <div className="max-h-56 overflow-y-auto space-y-2 pr-1">
+                                            {debtorHistory.map(guia => (
+                                              <div key={guia.id} className="flex justify-between items-center bg-brand-navy-bright/20 p-2 rounded-lg border border-brand-navy-bright/10">
+                                                <div className="flex flex-col">
+                                                  <span className="text-xs text-slate-200 font-medium">Lançado: {new Date(guia.criado_em).toLocaleString('pt-BR')}</span>
+                                                  <span className="text-[9px] text-slate-500 font-mono uppercase">ID: {guia.id.substring(0, 8)}...</span>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                  <span className="text-brand-emerald font-bold font-mono text-xs">{DecimalMath.formatBRL(guia.valor_total || '0')}</span>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handlePaySingleGuide(guia, client)}
+                                                    className="px-2.5 py-1 bg-brand-emerald/15 hover:bg-brand-emerald hover:text-brand-navy-deep text-brand-emerald rounded text-[10px] font-bold uppercase transition cursor-pointer"
+                                                  >
+                                                    Pagar
+                                                  </button>
+                                                </div>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        ) : (
+                                          <div className="text-xs text-slate-400">Nenhum detalhe encontrado para o saldo atual.</div>
+                                        )}
+                                      </div>
+
                                     </div>
                                   </td>
                                 </tr>
@@ -1582,9 +1729,9 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
                   setCustomerType('B2B');
 
                   // Consolidate values
-                  const consolidatedValue = parseFloat(selectedDebtor.outstandingBalance || '0.00').toFixed(2);
+                  const localConsolidated = debtorHistory.reduce((sum, item) => sum + parseFloat(item.valor_total || '0'), 0).toFixed(2);
                   const debtService: ServiceItem = {
-                    id: `srv-convenio-${selectedDebtor.id}-${Date.now()}`,
+                    id: `srv-convenio-todos-${selectedDebtor.id}`,
                     name: `Faturamento de Guias Acumuladas - Convênio`,
                     type: `CONVÊNIO`,
                     description: `Faturamento de convenios: ${selectedDebtor.guiasPendentes || 0} guias pendentes do parceiro.`,
@@ -1594,11 +1741,11 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
                   const cartItem: SelectedService = {
                     service: debtService,
                     quantity: 1,
-                    customValue: consolidatedValue
+                    customValue: localConsolidated
                   };
 
                   setCart([cartItem]);
-                  setPaymentMethod('BOLETO'); // Locks payment method to Boleto (Faturamento) for B2B Guia
+                  setPaymentMethod('PIX'); // Defaults to PIX for quitação (operator can change in checkout)
                   setCheckoutStage('CART'); // Redirect focus directly to checkout view
 
                   // Render temporary feedback alert toast
@@ -1611,8 +1758,8 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
                   setSelectedDebtor(null);
                 }}
                 className={`w-full py-3.5 px-4 rounded-xl text-xs font-bold font-sans uppercase tracking-wider transition-all duration-150 flex items-center justify-center gap-2 ${selectedDebtor
-                    ? 'bg-brand-emerald hover:bg-emerald-400 text-brand-navy-deep cursor-pointer shadow-lg shadow-brand-emerald/10'
-                    : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700/50'
+                  ? 'bg-brand-emerald hover:bg-emerald-400 text-brand-navy-deep cursor-pointer shadow-lg shadow-brand-emerald/10'
+                  : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700/50'
                   }`}
               >
                 <ShoppingBag className="w-4 h-4" />
@@ -1788,8 +1935,8 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
                         </span>
 
                         <span className={`text-[9px] uppercase font-mono px-1.5 py-0.5 rounded-full font-bold ${isDetran
-                            ? 'bg-amber-500/10 text-amber-500 border border-amber-500/10'
-                            : 'bg-slate-700/20 text-slate-400 border border-slate-700/20'
+                          ? 'bg-amber-500/10 text-amber-500 border border-amber-500/10'
+                          : 'bg-slate-700/20 text-slate-400 border border-slate-700/20'
                           }`}>
                           {srv.type === 'DETRAN' ? 'OPERACIONAL' : srv.type}
                         </span>
@@ -2667,8 +2814,8 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
                         }
                       }}
                       className={`w-full text-left p-3 rounded-xl border transition-all flex items-center justify-between cursor-pointer ${isSelected
-                          ? 'bg-brand-emerald/10 border-brand-emerald/40 text-brand-emerald font-bold'
-                          : 'bg-brand-navy-deep/40 border-brand-navy-bright/10 text-slate-300 hover:bg-brand-navy-card/60 hover:border-brand-navy-bright/35'
+                        ? 'bg-brand-emerald/10 border-brand-emerald/40 text-brand-emerald font-bold'
+                        : 'bg-brand-navy-deep/40 border-brand-navy-bright/10 text-slate-300 hover:bg-brand-navy-card/60 hover:border-brand-navy-bright/35'
                         }`}
                     >
                       <div>
@@ -2800,8 +2947,8 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
                           }
                         }}
                         className={`py-2 px-3 rounded-lg border text-[11px] text-left font-semibold transition-all flex items-center justify-between cursor-pointer ${isActive
-                            ? 'bg-brand-emerald/10 border-brand-emerald/40 text-brand-emerald'
-                            : 'bg-brand-navy-deep border-brand-navy-bright/10 text-slate-300 hover:bg-slate-800'
+                          ? 'bg-brand-emerald/10 border-brand-emerald/40 text-brand-emerald'
+                          : 'bg-brand-navy-deep border-brand-navy-bright/10 text-slate-300 hover:bg-slate-800'
                           }`}
                       >
                         <span>{m.label}</span>
