@@ -1021,8 +1021,8 @@ export default function App() {
       (c.cpfCnpj && newTx.clientCpfCnpj && c.cpfCnpj.replace(/[^\d]/g, '') === newTx.clientCpfCnpj.replace(/[^\d]/g, ''))
     );
 
-    const isB2BConvenio = newTx.paymentMethod === 'BOLETO';
-    const despachanteUuid = targetClientForTx ? targetClientForTx.id : (newTx as any).despachante_id || null;
+    const isB2BConvenio = newTx.paymentMethod === 'BOLETO' || (newTx as any).is_convenio === true;
+    const despachanteUuid = targetClientForTx ? targetClientForTx.id : (newTx.clientId || (newTx as any).despachante_id || null);
 
     // Regra de Validação B2B: aborta a transação e lança erro de validação se despachante_id for nulo
     if (isB2BConvenio && (!despachanteUuid || despachanteUuid === 'particular-temp')) {

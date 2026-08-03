@@ -1165,21 +1165,14 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
   const handleFinishTransaction = () => {
     if (!selectedClient) return;
 
-    // Regra de Validação B2B: aborta a transação se despachante_id for nulo no modo Faturamento de Guia
-    if (paymentMethod === 'BOLETO') {
-      if (!selectedClient.id || selectedClient.id === 'particular-temp') {
+    // Regra de Validação B2B: aborta a transação se despachante_id for nulo no modo Faturamento de Guia ou se for cliente B2B
+    if (paymentMethod === 'BOLETO' || customerType === 'B2B') {
+      if (!selectedClient || !selectedClient.id || selectedClient.id === 'particular-temp') {
+        const errorMsg = 'Falha no Relacionamento B2B: Selecione um despachante credenciado para efetuar o faturamento de guia B2B.';
         if (addToast) {
-          addToast(
-            'Erro de Validação',
-            'Falha no Relacionamento B2B: Selecione um despachante credenciado para efetuar o Faturamento de Guia.',
-            'alert'
-          );
+          addToast('Erro de Validação', errorMsg, 'alert');
         } else {
-          showToast(
-            'Erro de Validação',
-            'Falha no Relacionamento B2B: Selecione um despachante credenciado para efetuar o Faturamento de Guia.',
-            'alert'
-          );
+          showToast('Erro de Validação', errorMsg, 'alert');
         }
         return; // Aborta
       }
@@ -1221,7 +1214,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
       issqn: issqnValue,
       paymentMethod,
       installments: paymentMethod === 'CREDIT_CARD' ? installments : 1,
-      status: paymentMethod === 'BOLETO' ? 'PENDING' : 'PAID',
+      status: (paymentMethod === 'BOLETO' || customerType === 'B2B') ? 'PENDENTE' : 'PAID',
       createdBy: {
         userId: rlsSession?.userId || '',
         userName: rlsSession?.userName || 'Operador',
@@ -1230,8 +1223,8 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
       },
       overrideLogs: activeOverrideLogs,
       // Propriedades B2B adicionais para persistência atômica no Supabase
-      despachante_id: paymentMethod === 'BOLETO' ? selectedClient.id : null,
-      is_convenio: paymentMethod === 'BOLETO' ? true : false
+      despachante_id: (paymentMethod === 'BOLETO' || customerType === 'B2B') ? selectedClient.id : null,
+      is_convenio: (paymentMethod === 'BOLETO' || customerType === 'B2B') ? true : false
     } as any;
 
     // Liquidate debtor balance if this is a Convênio payment
