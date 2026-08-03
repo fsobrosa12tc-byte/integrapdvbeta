@@ -1060,8 +1060,8 @@ export default function App() {
         return new Date().toISOString().split('T')[0];
       })(),
       horario: new Date().toLocaleTimeString('pt-BR'),
-      despachante_id: despachanteUuid,
-      is_convenio: isB2BConvenio ? true : false,
+      despachante_id: despachanteUuid || newTx.clientId || (newTx as any).despachante_id || null,
+      is_convenio: (isB2BConvenio || (newTx as any).is_convenio === true || newTx.paymentMethod === 'BOLETO') ? true : false,
       tipo: isB2BConvenio ? 'GUIA' : undefined,
       categoria: isB2BConvenio ? 'GUIA_CONVENIO' : undefined,
       valor_total: isB2BConvenio ? parseFloat(valLiquido) : undefined
