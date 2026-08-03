@@ -1034,15 +1034,14 @@ export default function FluxoCaixaSection({
   // KPI calculados síncronamente via useMemo compartilhando a mesma fonte de dados realtime (transactions)
   const biKpis = React.useMemo(() => {
     let conv = '0.00';
-    // Soma de todas as transações que possuem status PENDENTE e sejam do tipo guia/convênio
-    const pendingTxs = (transactions || []).filter(tx => 
-      (tx.status === 'PENDENTE' || tx.status_conciliacao === 'PENDING') &&
-      (tx.is_convenio === true || tx.tipo === 'GUIA' || tx.paymentMethod === 'BOLETO' || (tx.items && tx.items.some((i: any) => i.type === 'CONVÊNIO' || i.type === 'GUIA_CONVENIO')))
+    // Filtragem estrita: SUM(valor_liquido) WHERE status === 'PENDENTE'
+    const pendingTxs = (transactions || []).filter(tx =>
+      tx.status === 'PENDENTE' || tx.status_conciliacao === 'PENDING'
     );
 
     if (pendingTxs.length > 0) {
       pendingTxs.forEach(tx => {
-        conv = DecimalMath.add(conv, parseFloat(tx.netTotal || tx.valorLiquido || tx.valorBruto || '0').toFixed(2));
+        conv = DecimalMath.add(conv, parseFloat(tx.valorLiquido || tx.valor_liquido || tx.netTotal || tx.valorBruto || '0').toFixed(2));
       });
     } else {
       if (clients) {
@@ -1162,15 +1161,14 @@ export default function FluxoCaixaSection({
 
   const convenioAbertoTotal = React.useMemo(() => {
     let conv = '0.00';
-    // Soma de todas as transações que possuem status PENDENTE e sejam do tipo guia/convênio
-    const pendingTxs = (transactions || []).filter(tx => 
-      (tx.status === 'PENDENTE' || tx.status_conciliacao === 'PENDING') &&
-      (tx.is_convenio === true || tx.tipo === 'GUIA' || tx.paymentMethod === 'BOLETO' || (tx.items && tx.items.some((i: any) => i.type === 'CONVÊNIO' || i.type === 'GUIA_CONVENIO')))
+    // Filtragem estrita: SUM(valor_liquido) WHERE status === 'PENDENTE'
+    const pendingTxs = (transactions || []).filter(tx =>
+      tx.status === 'PENDENTE' || tx.status_conciliacao === 'PENDING'
     );
 
     if (pendingTxs.length > 0) {
       pendingTxs.forEach(tx => {
-        conv = DecimalMath.add(conv, parseFloat(tx.netTotal || tx.valorLiquido || tx.valorBruto || '0').toFixed(2));
+        conv = DecimalMath.add(conv, parseFloat(tx.valorLiquido || tx.valor_liquido || tx.netTotal || tx.valorBruto || '0').toFixed(2));
       });
     } else {
       if (clients) {
