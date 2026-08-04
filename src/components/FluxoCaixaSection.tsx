@@ -1163,7 +1163,7 @@ export default function FluxoCaixaSection({
     let conv = '0.00';
     // Filtragem estrita: SUM(valor_liquido) WHERE status === 'PENDENTE'
     const pendingTxs = (transactions || []).filter(tx =>
-      tx.status === 'PENDENTE' || tx.status_conciliacao === 'PENDING'
+      tx.status === 'PENDENTE'
     );
 
     if (pendingTxs.length > 0) {

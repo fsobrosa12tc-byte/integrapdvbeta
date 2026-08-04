@@ -24,6 +24,8 @@ interface PdvSectionProps {
   caixaState?: CaixaState;
   addToast?: (title: string, message: string, type?: 'success' | 'info' | 'alert') => void;
   onRefreshData?: () => Promise<void>;
+  selectedDespachante?: any;
+  setSelectedDespachante?: (val: any) => void;
 }
 
 const PORTARIA_45_SERVICES = [
@@ -62,7 +64,7 @@ const PORTARIA_45_SERVICES = [
   { name: 'Reimpressão: Reimpressão de GAD-E', type: 'GERAL', base_value: '6.50', description: 'Portaria 45/2026' }
 ];
 
-export default function PdvSection({ onAddTransaction, rlsSession, clients, setClients, isMaster = false, onAlternarOperador, caixaState, addToast, onRefreshData }: PdvSectionProps) {
+export default function PdvSection({ onAddTransaction, rlsSession, clients, setClients, isMaster = false, onAlternarOperador, caixaState, addToast, onRefreshData, selectedDespachante, setSelectedDespachante }: PdvSectionProps) {
   const isLockedForSupervisor = !!(caixaState && caixaState?.status === 'aberto' && (rlsSession?.userRole === 'Gerente' || rlsSession?.userRole === 'Financeiro'));
 
   const showToast = (title: string, message: string, type: 'success' | 'info' | 'alert' = 'info') => {
@@ -203,6 +205,16 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
     outstandingBalance: '0.00'
   });
   const [searchClientQuery, setSearchClientQuery] = useState('');
+
+  useEffect(() => {
+    if (setSelectedDespachante) {
+      if (selectedClient && selectedClient.category === 'Despachante Credenciado') {
+        setSelectedDespachante(selectedClient);
+      } else {
+        setSelectedDespachante(null);
+      }
+    }
+  }, [selectedClient, setSelectedDespachante]);
 
   const handleTransitionCustomerType = (type: 'PARTICULAR' | 'B2B') => {
     setCustomerType(type);
