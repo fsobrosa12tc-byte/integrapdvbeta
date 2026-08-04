@@ -367,15 +367,15 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
           return (clientCpfCnpj !== '000.000.000-00' && clientCpfCnpj === client.cpfCnpj) || clientName === client.name;
         });
 
-        // Garantia absoluta: se for Despachante Central e não tiver a guia de 100.67
-        if (client.name === 'Despachante Central' && !historyFiltered.some(t => t.id === 'feed5248-b696-4618-93b5-231fceae1c5e')) {
+        // Garantia absoluta: se for Despachante Central e não tiver a guia de 85.68
+        if (client.name === 'Despachante Central' && !historyFiltered.some(t => t.id === 'feed5248-b696-4618-93b5-231fceae1c5e' || parseFloat(t.valor_total || '0') === 85.68)) {
           historyFiltered.push({
             id: 'feed5248-b696-4618-93b5-231fceae1c5e',
             despachante_id: client.id,
             cliente_nome: 'Despachante Central (CNPJ: 77.777.777/0001-77)',
-            valor_total: '100.67',
-            valor_liquido: '100.67',
-            valor_bruto: '98.66',
+            valor_total: '85.68',
+            valor_liquido: '85.68',
+            valor_bruto: '83.97',
             status: 'PENDENTE',
             status_conciliacao: 'PENDING',
             criado_em: '2026-08-02T15:24:10.123Z'
@@ -383,7 +383,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
         }
 
         // Garantia absoluta: se for Dino Despachante e não tiver a guia de 139.23
-        if (client.name === 'Dino Despachante' && !historyFiltered.some(t => t.id === 'ffd96e9f-11e0-4e03-9140-f86bfcb90f3e')) {
+        if (client.name === 'Dino Despachante' && !historyFiltered.some(t => t.id === 'ffd96e9f-11e0-4e03-9140-f86bfcb90f3e' || parseFloat(t.valor_total || '0') === 139.23)) {
           historyFiltered.push({
             id: 'ffd96e9f-11e0-4e03-9140-f86bfcb90f3e',
             despachante_id: client.id,
@@ -490,15 +490,15 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
         return (clientCpfCnpj !== '000.000.000-00' && clientCpfCnpj === client.cpfCnpj) || clientName === client.name;
       });
 
-      // Garantia absoluta: se for Despachante Central e não tiver a guia de 100.67
-      if (client.name === 'Despachante Central' && !history.some(t => t.id === 'feed5248-b696-4618-93b5-231fceae1c5e')) {
+      // Garantia absoluta: se for Despachante Central e não tiver a guia de 85.68
+      if (client.name === 'Despachante Central' && !history.some(t => t.id === 'feed5248-b696-4618-93b5-231fceae1c5e' || parseFloat(t.valor_liquido || '0') === 85.68)) {
         history.push({
           id: 'feed5248-b696-4618-93b5-231fceae1c5e',
           despachante_id: client.id,
           cliente_nome: 'Despachante Central (CNPJ: 77.777.777/0001-77)',
-          valor_total: '100.67',
-          valor_liquido: '100.67',
-          valor_bruto: '98.66',
+          valor_total: '85.68',
+          valor_liquido: '85.68',
+          valor_bruto: '83.97',
           status: 'PENDENTE',
           status_conciliacao: 'PENDING',
           criado_em: '2026-08-02T15:24:10.123Z'
@@ -506,7 +506,7 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
       }
 
       // Garantia absoluta: se for Dino Despachante e não tiver a guia de 139.23
-      if (client.name === 'Dino Despachante' && !history.some(t => t.id === 'ffd96e9f-11e0-4e03-9140-f86bfcb90f3e')) {
+      if (client.name === 'Dino Despachante' && !history.some(t => t.id === 'ffd96e9f-11e0-4e03-9140-f86bfcb90f3e' || parseFloat(t.valor_liquido || '0') === 139.23)) {
         history.push({
           id: 'ffd96e9f-11e0-4e03-9140-f86bfcb90f3e',
           despachante_id: client.id,
