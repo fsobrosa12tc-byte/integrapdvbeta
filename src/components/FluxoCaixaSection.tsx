@@ -1035,7 +1035,7 @@ export default function FluxoCaixaSection({
   const biKpis = React.useMemo(() => {
     let conv = '0.00';
     // Filtragem estrita: SUM(valor_liquido) WHERE status === 'PENDENTE'
-    const pendingTxs = (transactions || []).filter(tx =>
+    const pendingTxs: any[] = (transactions || []).filter((tx: any) =>
       tx.status === 'PENDENTE' || tx.status_conciliacao === 'PENDING'
     );
 
@@ -1162,7 +1162,7 @@ export default function FluxoCaixaSection({
   const convenioAbertoTotal = React.useMemo(() => {
     let conv = '0.00';
     // Filtragem estrita: SUM(valor_liquido) WHERE status === 'PENDENTE'
-    const pendingTxs = (transactions || []).filter(tx =>
+    const pendingTxs: any[] = (transactions || []).filter((tx: any) =>
       tx.status === 'PENDENTE'
     );
 
