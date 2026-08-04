@@ -277,11 +277,14 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
         .insert([{
           id: txId,
           despachante_id: client.id,
+          cliente_id: client.id,
           cliente_nome: cliNomeCompleto,
           forma_pagamento: 'BOLETO',
           valor_bruto: valFloat,
           valor_liquido: valFloat,
           status_conciliacao: 'PENDING',
+          status: 'PENDENTE',
+          is_convenio: true,
           operador_email: rlsSession?.email || 'operador.caixa@marks.com',
           terminal_ip: '127.0.0.1',
           terminal_id: localStorage.getItem('integra_terminal_id') || 'Caixa_01',
@@ -363,6 +366,8 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
           if (client.name === 'Despachante Central' && (clientName.includes('Central') || clientCpfCnpj === '77.777.777/0001-77')) return true;
           if (client.name === 'Dino Despachante' && (clientName.includes('Dino') || clientCpfCnpj === '11.111.111/0001-11')) return true;
           if (client.name === 'Despachante Passo Fundo' && (clientName.includes('Passo Fundo') || clientCpfCnpj === '99.999.999/0001-99')) return true;
+          if (client.name === 'Despachante Planalto' && (clientName.includes('Planalto') || clientCpfCnpj === '88.888.888/0001-88')) return true;
+          if (client.name === 'Despachante Teste' && (clientName.includes('Teste') || clientCpfCnpj === '00.000.000/0001-00')) return true;
 
           return (clientCpfCnpj !== '000.000.000-00' && clientCpfCnpj === client.cpfCnpj) || clientName === client.name;
         });
@@ -501,6 +506,8 @@ export default function PdvSection({ onAddTransaction, rlsSession, clients, setC
         if (client.name === 'Despachante Central' && (clientName.includes('Central') || clientCpfCnpj === '77.777.777/0001-77')) return true;
         if (client.name === 'Dino Despachante' && (clientName.includes('Dino') || clientCpfCnpj === '11.111.111/0001-11')) return true;
         if (client.name === 'Despachante Passo Fundo' && (clientName.includes('Passo Fundo') || clientCpfCnpj === '99.999.999/0001-99')) return true;
+        if (client.name === 'Despachante Planalto' && (clientName.includes('Planalto') || clientCpfCnpj === '88.888.888/0001-88')) return true;
+        if (client.name === 'Despachante Teste' && (clientName.includes('Teste') || clientCpfCnpj === '00.000.000/0001-00')) return true;
 
         return (clientCpfCnpj !== '000.000.000-00' && clientCpfCnpj === client.cpfCnpj) || clientName === client.name;
       });

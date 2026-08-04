@@ -374,7 +374,8 @@ export default function App() {
           tx.id === 'b81d4f92-6dba-4323-8474-9f62fc7d7b1e' || // Despachante Teste
           tx.id === 'a22951d6-1d1f-4df0-bf47-14e2f180d2ad' || // Despachante Planalto
           tx.id === 'e5d86f51-d443-42cb-833f-a4425595fabf' || // Dino Despachante
-          tx.id === 'feed5248-b696-4618-93b5-231fceae1c5e';   // Despachante Central
+          tx.id === 'feed5248-b696-4618-93b5-231fceae1c5e' || // Despachante Central
+          tx.id === 'f8c1e213-c894-421f-941c-22eb0b70048e';   // Despachante Central (61.20)
 
         if (isTargetLegacyPending) {
           activeStatus = 'PENDENTE';
@@ -517,6 +518,12 @@ export default function App() {
       ];
 
       legacyTxsToAdd.forEach(lt => {
+        // Evita a injeção do ID legado 'e5d86f51' se a transação do Dino 'ffd96e9f-11e0-4e03-9140-f86bfcb90f3e' já estiver presente no banco
+        if (lt.id === 'e5d86f51-d443-42cb-833f-a4425595fabf') {
+          const hasRealDinoTx = localMappedTxs.some((t: any) => t.id === 'ffd96e9f-11e0-4e03-9140-f86bfcb90f3e');
+          if (hasRealDinoTx) return;
+        }
+
         const exists = localMappedTxs.some((t: any) => t.id === lt.id);
         if (!exists) {
           const matchedClient = clientData.find((c: any) => c.razao_social === lt.despachante_nome);
@@ -1257,7 +1264,7 @@ export default function App() {
       cliente_id: selectedDespachante ? selectedDespachante.id : null,
       despachante_id: selectedDespachante ? selectedDespachante.id : null,
       despachante_nome: selectedDespachante ? selectedDespachante.nome : null,
-      is_convenio: Boolean(selectedDespachante),
+      is_convenio: true,
       tipo: isB2BConvenio ? 'GUIA' : undefined,
       categoria: isB2BConvenio ? 'GUIA_CONVENIO' : undefined,
       valor_total: isB2BConvenio ? parseFloat(valLiquido) : undefined

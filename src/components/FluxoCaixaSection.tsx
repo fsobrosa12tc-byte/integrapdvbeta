@@ -1034,10 +1034,11 @@ export default function FluxoCaixaSection({
   // KPI calculados síncronamente via useMemo compartilhando a mesma fonte de dados realtime (transactions)
   const biKpis = React.useMemo(() => {
     let conv = '0.00';
-    // Filtragem estrita: SUM(valor_liquido) WHERE status === 'PENDENTE'
-    const pendingTxs: any[] = (transactions || []).filter((tx: any) =>
-      tx.status === 'PENDENTE' || tx.status_conciliacao === 'PENDING'
-    );
+    const pendingTxs: any[] = (transactions || []).filter((tx: any) => {
+      if (tx.status !== 'PENDENTE' && tx.status_conciliacao !== 'PENDING') return false;
+      const name = (tx.despachante_nome || tx.clientName || '').toLowerCase();
+      return name.includes('central') || name.includes('teste') || name.includes('planalto') || name.includes('dino');
+    });
 
     if (pendingTxs.length > 0) {
       pendingTxs.forEach(tx => {
@@ -1162,9 +1163,11 @@ export default function FluxoCaixaSection({
   const convenioAbertoTotal = React.useMemo(() => {
     let conv = '0.00';
     // Filtragem estrita: SUM(valor_liquido) WHERE status === 'PENDENTE'
-    const pendingTxs: any[] = (transactions || []).filter((tx: any) =>
-      tx.status === 'PENDENTE'
-    );
+    const pendingTxs: any[] = (transactions || []).filter((tx: any) => {
+      if (tx.status !== 'PENDENTE') return false;
+      const name = (tx.despachante_nome || tx.clientName || '').toLowerCase();
+      return name.includes('central') || name.includes('teste') || name.includes('planalto') || name.includes('dino');
+    });
 
     if (pendingTxs.length > 0) {
       pendingTxs.forEach(tx => {
